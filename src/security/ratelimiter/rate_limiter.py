@@ -65,7 +65,7 @@ def rate_limit(
                     # Execute the rate limit callback if provided
                     if on_rate_limited and event:
                         await on_rate_limited(event)
-                    return
+                    return None
 
                 # Execute the function if not rate limited
                 return await func(*args, **kwargs)

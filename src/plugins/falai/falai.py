@@ -4,7 +4,6 @@ from pyrogram.types import Message
 from pyrogram.enums import ChatType, ParseMode
 from structlog import get_logger
 
-from src.plugins.help import command_handler
 from src.plugins.settings.settings import get_chat_setting
 from .service import transcribe_audio
 
@@ -15,7 +14,10 @@ MAX_AUDIO_DURATION = 600  # 10 minutes
 TRANSCRIPTION_SUCCESS = "\n> {}"  # Added newline and space after >
 TRANSCRIPTION_ERROR = "❌ Не удалось транскрибировать аудио"
 
-@Client.on_message(filters.voice | filters.audio | filters.video_note, group=2)
+from src.security.ratelimiter.rate_limiter import rate_limit
+
+@Client.on_message(filters.voice | filters.audio | filters.video_note, group=1)  # Changed to group 1 to run earlier
+@rate_limit(operation="transcribe", window_seconds=20)
 async def transcribe_handler(client: Client, message: Message):
     """Handle voice and audio messages for transcription"""
     if not message.from_user:
@@ -72,5 +74,5 @@ async def transcribe_handler(client: Client, message: Message):
         await message.reply_text(
             TRANSCRIPTION_SUCCESS.format(result["transcription"]),
             quote=True,
-            parse_mode=ParseMode.DEFAULT  # Changed to MARKDOWN_V2 for better formatting
+            parse_mode=ParseMode.DEFAULT 
         )
