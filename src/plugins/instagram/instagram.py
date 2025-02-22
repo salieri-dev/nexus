@@ -2,7 +2,7 @@ import re
 
 from pyrogram import Client, filters
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
-from src.plugins.instagram.instagram_service import InstagramMediaFetcher
+from src.plugins.instagram.service import InstagramMediaFetcher
 from src.utils.credentials import Credentials
 from src.security.ratelimiter.rate_limiter import rate_limit
 
