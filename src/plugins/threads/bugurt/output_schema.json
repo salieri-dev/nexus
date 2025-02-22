@@ -1,0 +1,27 @@
+{
+  "name": "BugurtSchema",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "story": {
+        "type": "string",
+        "description": "The bugurt story with @ separators between lines"
+      },
+      "2ch_comments": {
+        "type": "array",
+        "description": "Comments in 2ch style. They should never using >>. Just plain text without quotations.",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 2,
+        "maxItems": 3
+      }
+    },
+    "required": [
+      "story",
+      "2ch_comments"
+    ],
+    "additionalProperties": false
+  }
+}

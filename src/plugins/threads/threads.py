@@ -1,4 +1,5 @@
 import os
+import json
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
@@ -8,6 +9,12 @@ from structlog import get_logger
 log = get_logger(__name__)
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def load_schema(filename: str) -> dict:
+    """Load JSON schema from file"""
+    schema_path = os.path.join(CURRENT_DIR, filename)
+    with open(schema_path, "r") as f:
+        return json.load(f)["schema"]
 
 @Client.on_message(filters.command(["bugurt"]), group=1)
 async def create_bugurt(client: Client, message: Message):
@@ -22,9 +29,13 @@ async def create_bugurt(client: Client, message: Message):
         
     open_router = OpenRouter().client
     
+    # Load system prompt and schema
     with open(os.path.join(CURRENT_DIR, "bugurt", "bugurt_system_prompt.txt"), "r") as file:
         system_prompt = file.read()
     
+    schema = load_schema("bugurt/output_schema.json")
+    
+    reply_msg = await message.reply("⚙️ Генерирую пост...")
     completion = await open_router.chat.completions.create(
         messages=[
             {
@@ -33,10 +44,13 @@ async def create_bugurt(client: Client, message: Message):
             },
             {
                 "role": "user",
-                "content": input_prompt
+                "content": f"Создай бугурт-тред историю с темой '{input_prompt}'. Ответ должен быть в формате JSON как описано в инструкции."
             }
         ],
-        model="google/gemini-2.0-flash-thinking-exp:free", temperature=0.7, max_completion_tokens=65536, top_p=0.95, extra_body={"include_reasoning": True}
+        model="anthropic/claude-3.5-sonnet:beta",
+        temperature=1,
+        max_tokens=5000,
+        response_format={"type": "json_schema", "schema": schema}
     )
     
     completion_response = completion.choices[0].message.content
@@ -49,7 +63,8 @@ async def create_bugurt(client: Client, message: Message):
     if not image_bytes:
         await message.reply("Не удалось сгенерировать бугурт")
         return
-        
+    
+    await reply_msg.delete()
     # Send the image
     from io import BytesIO
     
@@ -74,9 +89,13 @@ async def create_greentext(client: Client, message: Message):
         
     open_router = OpenRouter().client
     
+    # Load system prompt and schema
     with open(os.path.join(CURRENT_DIR, "greentext", "greentext_system_prompt.txt"), "r") as file:
         system_prompt = file.read()
     
+    schema = load_schema("greentext/output_schema.json")
+    
+    reply_msg = await message.reply("⚙️ Генерирую пост...")
     completion = await open_router.chat.completions.create(
         messages=[
             {
@@ -85,10 +104,13 @@ async def create_greentext(client: Client, message: Message):
             },
             {
                 "role": "user",
-                "content": input_prompt
+                "content": f"Create a greentext story with theme '{input_prompt}'. Response must be in JSON format as described in the instructions."
             }
         ],
-        model="google/gemini-2.0-flash-thinking-exp:free", temperature=0.7, max_completion_tokens=65536, top_p=0.95, extra_body={"include_reasoning": True}
+        model="anthropic/claude-3.5-sonnet:beta",
+        temperature=1,
+        max_tokens=5000,
+        response_format={"type": "json_schema", "schema": schema}
     )
     
     completion_response = completion.choices[0].message.content
@@ -103,6 +125,7 @@ async def create_greentext(client: Client, message: Message):
         await message.reply("Не удалось сгенерировать гринтекст")
         return
         
+    await reply_msg.delete()
     # Send the image
     from io import BytesIO
     
