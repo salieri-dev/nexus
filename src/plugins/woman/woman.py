@@ -100,6 +100,8 @@ async def woman_command(client: Client, message: Message):
         total_images = sum(len([f for f in files if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))])
                            for _, _, files in os.walk(folder_path))
 
+        notification = await message.reply_text("🔍 Запрашиваем альтушек...", quote=True)
+        
         # Retrieve random images, exit early if none found
         image_paths = get_random_images(folder_path, image_count)
         if not image_paths:
@@ -140,8 +142,10 @@ async def woman_command(client: Client, message: Message):
         media_group = [InputMediaPhoto(media=image_paths[0], caption=combined_caption)]
         media_group.extend(InputMediaPhoto(media=image_path) for image_path in image_paths[1:])
 
+        
         # Send the media group with the caption only on the first image
         await message.reply_media_group(media=media_group, quote=True)
+        await notification.delete()
         return
 
     except Exception as e:
