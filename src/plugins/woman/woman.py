@@ -7,6 +7,8 @@ from pyrogram import Client, filters
 from pyrogram.enums import ChatType
 from pyrogram.types import ChatMember, InputMediaPhoto, Message
 
+from src.plugins.settings.settings import get_chat_setting
+
 # Message constants
 NSFW_DISABLED = "❌ NSFW контент отключен в этом чате. Администратор может включить его через /settings"
 NO_IMAGES_FOUND = "Изображения не найдены."
@@ -84,10 +86,15 @@ async def get_chat_members(client: Client, chat_id: int) -> List[ChatMember]:
 @Client.on_message(filters.command(["woman", "women", "females"]), group=2)
 async def woman_command(client: Client, message: Message):
     """Send random woman images with funny captions"""
-    folder_path = "assets/woman"
-    image_count = 4
-
     try:
+        # Check NSFW settings first
+        if not await get_chat_setting(message.chat.id, 'nsfw'):
+            await message.reply_text(NSFW_DISABLED, quote=True)
+            return
+
+        folder_path = "assets/woman"
+        image_count = 4
+
         # Get the total count of images in the dataset
         total_images = sum(len([f for f in files if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))])
                            for _, _, files in os.walk(folder_path))
