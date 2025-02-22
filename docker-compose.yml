@@ -1,0 +1,41 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      - mongodb
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONFAULTHANDLER=1
+      - DOCKER_ENV=true
+
+  mongodb:
+    image: mongo:latest
+    restart: always
+    ports:
+      - "${MONGO_BIND_IP}:${MONGO_PORT}:${MONGO_PORT}"
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - ./lib/mongodb:/data/db
+    networks:
+      - app-network
+    stop_grace_period: 5s
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
