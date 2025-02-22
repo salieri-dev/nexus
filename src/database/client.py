@@ -6,10 +6,11 @@ from src.utils.credentials import Credentials
 # Get the shared logger instance
 logger = structlog.get_logger()
 
+
 class DatabaseClient:
     _instance = None
     _initialized = False
-    
+
     def __new__(cls, credentials: Optional[Credentials] = None):
         if cls._instance is None:
             cls._instance = super(DatabaseClient, cls).__new__(cls)
@@ -24,21 +25,21 @@ class DatabaseClient:
         if not self._initialized:
             try:
                 logger.info("Connecting to MongoDB",
-                           host=self.credentials.database.host,
-                           port=self.credentials.database.port)
+                            host=self.credentials.database.host,
+                            port=self.credentials.database.port)
                 self.client = AsyncIOMotorClient(self.connection_string)
                 self.db = self.client[database_name]
                 # Verify connection
                 await self.client.admin.command('ping')
                 self._initialized = True
                 logger.info("Successfully connected to MongoDB",
-                           host=self.credentials.database.host,
-                           port=self.credentials.database.port)
-            except Exception as e:
-                logger.error("Failed to connect to MongoDB",
-                            error=str(e),
                             host=self.credentials.database.host,
                             port=self.credentials.database.port)
+            except Exception as e:
+                logger.error("Failed to connect to MongoDB",
+                             error=str(e),
+                             host=self.credentials.database.host,
+                             port=self.credentials.database.port)
                 raise
 
     @classmethod

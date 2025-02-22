@@ -10,6 +10,7 @@ logger = structlog.get_logger()
 API_URL = "https://tanks.gg/api/v13200ru/list"
 TANK_IMAGE_URL = "https://assets.tanks.gg/icons/ru-tanks/standard/{country}-{tank_id}.png"
 
+
 class TankService:
     def __init__(self, repository: TanksRepository):
         self.repository = repository
@@ -77,16 +78,16 @@ class TankService:
             # Optionally clear existing tanks
             if clear_existing:
                 await self.clear_tanks()
-            
+
             # Fetch tanks from API
             tanks_data = await self.fetch_tanks()
-            
+
             # Format tank data
             formatted_tanks = [
                 self.format_tank_data(tank)
                 for tank in tanks_data
             ]
-            
+
             # Save each tank to repository
             count = 0
             for tank in formatted_tanks:
@@ -99,10 +100,10 @@ class TankService:
                         tank_id=tank["tank_id"],
                         error=str(e)
                     )
-            
+
             logger.info(f"Successfully synced {count} tanks")
             return count
-            
+
         except Exception as e:
             logger.error("Failed to sync tanks", error=str(e))
             raise

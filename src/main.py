@@ -8,18 +8,19 @@ from src.plugins.tanks import init_tanks
 # Setup logging once at the module level
 logger = setup_structlog()
 
+
 async def main():
     # Load credentials and get shared database instance
     credentials = Credentials.from_env()
     db = DatabaseClient.get_instance(credentials)
-    
+
     try:
         # Initialize database connection
         await db.connect()
-        
+
         # Initialize tanks data
         await init_tanks()
-        
+
         app = Client(
             credentials.bot.name,
             api_id=credentials.bot.app_id,
@@ -27,7 +28,7 @@ async def main():
             bot_token=credentials.bot.bot_token,
             plugins=dict(root="src/plugins"),
             mongodb=dict(connection=db.client, remove_peers=False))
-        
+
         logger.info("Starting Nexus")
         await app.start()
         await idle()
@@ -39,6 +40,7 @@ async def main():
         await db.disconnect()
         if 'app' in locals():
             await app.stop()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

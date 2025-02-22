@@ -1,9 +1,10 @@
 import random
 from typing import Dict, List, Optional
 
+
 class TanksRepository:
     """Repository for managing tank data"""
-    
+
     def __init__(self, db):
         self.db = db["nexus"]
         self.collection = self.db["tanks"]
@@ -47,7 +48,7 @@ class TanksRepository:
             upsert=True  # Create if doesn't exist
         )
         return tank_data["tank_id"]
-    
+
     async def get_tank_by_id(self, tank_id: str) -> Optional[Dict]:
         """
         Get a tank by its ID.

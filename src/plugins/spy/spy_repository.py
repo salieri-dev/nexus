@@ -1,9 +1,10 @@
 from typing import Dict, List, Optional
 from src.database.client import DatabaseClient
 
+
 class MessageRepository:
     """Repository for handling message-related database operations."""
-    
+
     def __init__(self, db):
         self.db = db["nexus"]
         self.collection = self.db["messages"]

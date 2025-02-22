@@ -3,6 +3,7 @@ from typing import Optional
 import os
 from urllib.parse import quote_plus
 
+
 @dataclass
 class ProxyConfig:
     enabled: bool
@@ -17,13 +18,14 @@ class ProxyConfig:
             port=int(os.getenv("PROXY_PORT", "0")) if os.getenv("PROXY_PORT") else None
         )
 
+
 @dataclass
 class DatabaseConfig:
     username: str
     password: str
     host: str
     port: int
-    
+
     @property
     def connection_string(self) -> str:
         username = quote_plus(self.username)
@@ -37,13 +39,15 @@ class DatabaseConfig:
     @classmethod
     def from_env(cls) -> 'DatabaseConfig':
         # Use service name in Docker, fallback to MONGO_BIND_IP
-        host = os.getenv("MONGO_HOST", "mongodb") if os.getenv("DOCKER_ENV") else os.getenv("MONGO_BIND_IP", "localhost")
+        host = os.getenv("MONGO_HOST", "mongodb") if os.getenv("DOCKER_ENV") else os.getenv("MONGO_BIND_IP",
+                                                                                            "localhost")
         return cls(
             username=os.getenv("MONGO_USERNAME", ""),
             password=os.getenv("MONGO_PASSWORD", ""),
             host=host,
             port=int(os.getenv("MONGO_PORT", "27017"))
         )
+
 
 @dataclass
 class BotConfig:
@@ -61,6 +65,7 @@ class BotConfig:
             bot_token=os.getenv("BOT_TOKEN", "")
         )
 
+
 @dataclass
 class APIConfig:
     fal_key: str
@@ -77,6 +82,7 @@ class APIConfig:
             suno_api_url=os.getenv("SUNO_API_URL", "")
         )
 
+
 @dataclass
 class DebugConfig:
     owner_id: int
@@ -86,6 +92,7 @@ class DebugConfig:
         return cls(
             owner_id=int(os.getenv("OWNER_ID", "0"))
         )
+
 
 @dataclass
 class Credentials:

@@ -52,10 +52,10 @@ async def tanks(client, message: Message):
         # Get database instance and initialize repository
         db = DatabaseClient.get_instance()
         repository = TanksRepository(db.client)
-        
+
         # Get command arguments
         args = message.command[1:]
-        
+
         # Case 1: No arguments - return random tank
         if not args:
             tank = await repository.get_random_tank()
@@ -63,43 +63,44 @@ async def tanks(client, message: Message):
                 await message.reply(TANK_NOT_FOUND_MESSAGE)
                 return
             return await format_tank_response(message, tank)
-            
+
         # Case 2: Numeric argument - get tanks by tier
         if args[0].isdigit():
             tier = int(args[0])
             if not 1 <= tier <= 11:
                 await message.reply(TANK_INVALID_TIER_MESSAGE)
                 return
-                
+
             tanks = await repository.get_tanks_by_tier(tier)
             if not tanks:
                 await message.reply(TANK_NOT_FOUND_MESSAGE)
                 return
-                
+
             # Return a random tank from the tier
             tank = random.choice(tanks)
             return await format_tank_response(message, tank)
-            
+
         # Case 3: Text argument - search tank by name
         search_query = " ".join(args)
         tanks = await repository.search_tanks_by_name(search_query)
-        
+
         if not tanks:
             await message.reply("Не нашёл такого танка")
             return
-            
+
         # Return the first matched tank
         return await format_tank_response(message, tanks[0])
-            
+
     except Exception as e:
         logger.error("Error in tanks command", error=str(e))
         await message.reply(GENERAL_ERROR_MESSAGE)
+
 
 async def format_tank_response(message: Message, tank: Dict) -> None:
     """Format and send tank information response with markdown"""
     tank_type = TANK_TYPES.get(tank.get("type", ""), "Неизвестный тип")
     nation = NATIONS.get(tank.get("nation", ""), "Неизвестная нация")
-    
+
     # Format price display
     price = tank.get("price", 0)
     gold_price = tank.get("gold_price", 0)
@@ -109,8 +110,7 @@ async def format_tank_response(message: Message, tank: Dict) -> None:
     if gold_price > 0:
         price_display.append(f"{gold_price:,} 🪙")
     price_str = " или ".join(price_display) if price_display else "Нет в продаже"
-    
-    
+
     response = (
         f"**{tank['name']}**\n\n"
         f"🎯 **Тип:** {tank_type}\n"
@@ -119,10 +119,10 @@ async def format_tank_response(message: Message, tank: Dict) -> None:
         f"💳 **Стоимость:** {price_str}\n"
         f"🏪 **Доступность:** {'Недоступен в магазине' if tank.get('not_in_shop') else 'Доступен в магазине'}\n"
     )
-    
+
     if tank.get("short_name") and tank["short_name"] != tank["name"]:
         response = f"{response}\n📝 **Краткое название:** {tank['short_name']}"
-    
+
     # Send response with tank image if available
     image_url = tank.get("image_url")
     if image_url:
