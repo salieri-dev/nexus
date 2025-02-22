@@ -36,14 +36,10 @@ def get_message_content(message) -> str:
 async def message(client: Client, message):
     """Log all incoming messages to the database."""
     try:
-        # Initialize DatabaseClient using the connection from Pyrogram client
-        db_client = DatabaseClient()
-        db_client.client = client.mongodb["connection"]
-        db_client.db = db_client.client["nexus"]
-        
-        # Log message to database
-        message_repo = MessageRepository(db_client)
-        await message_repo.log_message(serialize(message))
+        # Use shared database instance
+        db_client = DatabaseClient.get_instance()
+        message_repo = MessageRepository(db_client.client)
+        await message_repo.insert_message(serialize(message))
         
         # Build logging data
         user_identifier = get_user_identifier(message)

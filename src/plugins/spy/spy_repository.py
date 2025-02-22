@@ -1,15 +1,14 @@
 from typing import Dict, List, Optional
-from datetime import datetime
 from src.database.client import DatabaseClient
 
 class MessageRepository:
     """Repository for handling message-related database operations."""
     
-    def __init__(self, db_client: DatabaseClient):
-        self.db = db_client
-        self.collection = "messages"
+    def __init__(self, db):
+        self.db = db["nexus"]
+        self.collection = self.db["messages"]
 
-    async def log_message(self, message_data: Dict) -> str:
+    async def insert_message(self, message_data: Dict) -> str:
         """
         Log a message to the database.
         
@@ -19,34 +18,38 @@ class MessageRepository:
         Returns:
             str: ID of the inserted document
         """
-        return await self.db.insert_one(self.collection, message_data)
+        result = await self.collection.insert_one(message_data)
+        return str(result.inserted_id)
 
     async def get_messages_by_chat(self, chat_id: int, limit: int = 100) -> List[Dict]:
         """Get messages from a specific chat."""
         query = {"chat_id": chat_id}
-        return await self.db.find_many(self.collection, query)
+        cursor = self.collection.find(query).limit(limit)
+        return await cursor.to_list(length=None)
 
     async def get_messages_by_user(self, user_id: int, limit: int = 100) -> List[Dict]:
         """Get messages from a specific user."""
         query = {"user_id": user_id}
-        return await self.db.find_many(self.collection, query)
+        cursor = self.collection.find(query).limit(limit)
+        return await cursor.to_list(length=None)
 
     async def get_message_by_id(self, message_id: int) -> Optional[Dict]:
         """Get a specific message by its ID."""
         query = {"message_id": message_id}
-        return await self.db.find_one(self.collection, query)
+        return await self.collection.find_one(query)
 
     async def delete_messages_by_chat(self, chat_id: int) -> int:
         """Delete all messages from a specific chat."""
         query = {"chat_id": chat_id}
-        return await self.db.delete_many(self.collection, query)
+        result = await self.collection.delete_many(query)
+        return result.deleted_count
 
     async def get_message_count_by_chat(self, chat_id: int) -> int:
         """Get the total number of messages in a chat."""
         query = {"chat_id": chat_id}
-        return await self.db.count_documents(self.collection, query)
+        return await self.collection.count_documents(query)
 
     async def get_message_count_by_user(self, user_id: int) -> int:
         """Get the total number of messages by a user."""
         query = {"user_id": user_id}
-        return await self.db.count_documents(self.collection, query)
+        return await self.collection.count_documents(query)
