@@ -54,3 +54,73 @@ class MessageRepository:
         """Get the total number of messages by a user."""
         query = {"user_id": user_id}
         return await self.collection.count_documents(query)
+
+
+class PeerRepository:
+    """Repository for handling peer-specific configurations."""
+
+    DEFAULT_CONFIG = {
+        "nsfw_enabled": False,
+        "transcribe_enabled": True,
+        "summary_enabled": False,
+        "nhentai_blur": True
+    }
+
+    def __init__(self, db):
+        self.db = db["nexus"]
+        self.collection = self.db["settings"]
+        # In-memory cache of peer configurations
+        self._config_cache = {}
+
+    async def get_peer_config(self, chat_id: int) -> Dict:
+        """
+        Get peer configuration, using cache if available.
+        Creates default config if peer doesn't exist.
+        """
+        # Check cache first
+        if chat_id in self._config_cache:
+            return self._config_cache[chat_id]
+
+        # Check database
+        config = await self.collection.find_one({"chat_id": chat_id})
+        
+        if not config:
+            # Create new config with defaults
+            config = {"chat_id": chat_id, **self.DEFAULT_CONFIG}
+            await self.collection.insert_one(config)
+        
+        # Cache the config
+        self._config_cache[chat_id] = config
+        return config
+
+    async def update_peer_config(self, chat_id: int, updates: Dict) -> Dict:
+        """Update peer configuration with new values."""
+        # Validate updates
+        valid_updates = {k: v for k, v in updates.items() if k in self.DEFAULT_CONFIG}
+        
+        if not valid_updates:
+            return await self.get_peer_config(chat_id)
+
+        # Update database
+        await self.collection.update_one(
+            {"chat_id": chat_id},
+            {"$set": valid_updates},
+            upsert=True
+        )
+
+        # Update cache
+        if chat_id in self._config_cache:
+            self._config_cache[chat_id].update(valid_updates)
+        else:
+            await self.get_peer_config(chat_id)  # This will cache the config
+
+        return self._config_cache[chat_id]
+
+    def invalidate_cache(self, chat_id: int = None):
+        """
+        Invalidate the cache for a specific chat_id or entire cache.
+        """
+        if chat_id is not None:
+            self._config_cache.pop(chat_id, None)
+        else:
+            self._config_cache.clear()

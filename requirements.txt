@@ -7,3 +7,4 @@ openai
 imgkit
 pillow
 jinja2
+fal_client

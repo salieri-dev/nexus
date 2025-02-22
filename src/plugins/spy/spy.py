@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from structlog import get_logger
 import json
 
-from src.plugins.spy.repository import MessageRepository
+from src.plugins.spy.repository import MessageRepository, PeerRepository
 from src.database.client import DatabaseClient
 
 # Get the shared logger instance
@@ -42,7 +42,15 @@ async def message(client: Client, message):
     try:
         # Use shared database instance
         db_client = DatabaseClient.get_instance()
+        
+        # Initialize repositories
         message_repo = MessageRepository(db_client.client)
+        peer_repo = PeerRepository(db_client.client)
+        
+        # Get or create peer config
+        peer_config = await peer_repo.get_peer_config(message.chat.id)
+        
+        # Store message
         await message_repo.insert_message(serialize(message))
 
         # Build logging data
@@ -50,11 +58,15 @@ async def message(client: Client, message):
         msg_content = get_message_content(message)
         chat_title = "DM" if message.chat.type == "private" else message.chat.title
 
+        # Include peer config status in logging
+        config_status = {k: v for k, v in peer_config.items() if k != 'chat_id'}
+        
         log.info(
             f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id}]: {msg_content}",
             message_id=message.id,
             chat_id=message.chat.id,
-            message_type=type(message).__name__
+            message_type=type(message).__name__,
+            peer_config=config_status
         )
 
     except Exception as e:
