@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 import structlog
 import json
 
-from src.plugins.spy.message_repository import MessageRepository
+from src.plugins.spy.spy_repository import MessageRepository
 from src.database.client import DatabaseClient
 
 # Get the shared logger instance
@@ -25,6 +25,10 @@ def get_message_content(message) -> str:
     if message.media:
         media_type = str(message.media).replace("MessageMediaType.", "")
         content += f" [{media_type}]"
+        
+    if message.service:
+        message_service = str(message.service).replace("MessageServiceType.", "")
+        content += f" [{message_service}]"
     
     return content
 
