@@ -10,8 +10,8 @@ logger = setup_structlog()
 
 
 async def main():
-    # Load credentials and get shared database instance
-    credentials = Credentials.from_env()
+    # Initialize credentials singleton and get shared database instance
+    credentials = Credentials.get_instance()
     db = DatabaseClient.get_instance(credentials)
 
     try:

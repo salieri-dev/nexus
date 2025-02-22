@@ -11,10 +11,9 @@ from src.plugins.tanks.tanks_repository import TanksRepository
 logger = structlog.get_logger()
 
 # Message constants
-TANK_INVALID_TIER_MESSAGE = "Tier должен быть от 1 до 11"
-TANK_INVALID_TIER_NUMBER_MESSAGE = "Tier должен быть числом от 1 до 11"
-TANK_NOT_FOUND_MESSAGE = "Танки не найдены"
-GENERAL_ERROR_MESSAGE = "❌ Произошла ошибка при обработке запроса"
+TANK_INVALID_TIER_MESSAGE = "❌ Ранг должен быть числом от 1 до 11"
+TANK_NOT_FOUND_MESSAGE = "❌ Увы, ничего не нашлось"
+GENERAL_ERROR_MESSAGE = "❌ Произошла ошибка при обработке запроса. Повторите попытку позже."
 
 # Map of nations to their proper display names
 NATIONS = {

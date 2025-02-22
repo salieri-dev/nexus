@@ -2,4 +2,4 @@ pyrofork
 motor
 structlog
 tgcrypto
-httpx
+httpx[socks]
