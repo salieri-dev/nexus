@@ -2,7 +2,7 @@ import functools
 from typing import Optional, Callable, Any
 import structlog
 from src.database.client import DatabaseClient
-from src.database.rate_limit_repository import RateLimitRepository
+from src.security.ratelimiter.repository import RateLimitRepository
 
 logger = structlog.get_logger()
 

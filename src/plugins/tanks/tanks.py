@@ -6,7 +6,7 @@ from pyrogram.types import Message
 import structlog
 from src.database.client import DatabaseClient
 
-from src.plugins.tanks.tanks_repository import TanksRepository
+from src.plugins.tanks.repository import TanksRepository
 
 logger = structlog.get_logger()
 

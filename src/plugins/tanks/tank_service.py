@@ -2,7 +2,7 @@ import httpx
 from typing import Dict, List
 import structlog
 import json
-from src.plugins.tanks.tanks_repository import TanksRepository
+from src.plugins.tanks.repository import TanksRepository
 
 # Get the shared logger instance
 logger = structlog.get_logger()

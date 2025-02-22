@@ -4,7 +4,7 @@ from pyrogram import Client, filters
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 from src.plugins.instagram.instagram_service import InstagramMediaFetcher
 from src.utils.credentials import Credentials
-from src.utils.rate_limiter import rate_limit
+from src.security.ratelimiter.rate_limiter import rate_limit
 
 from structlog import get_logger
 
@@ -26,7 +26,7 @@ instagram_url_pattern = r"https?://(?:www\.)?instagram\.com/(?:p|reel)/[A-Za-z0-
     operation="instagram_handler",
     window_seconds=10,  # One request per 10 seconds
 )
-async def insta_handler(client: Client, event: Message):
+async def instagram_handler(client: Client, event: Message):
     # Extract the Instagram URL from the message
     instagram_url = re.search(instagram_url_pattern, event.text).group(0)
 

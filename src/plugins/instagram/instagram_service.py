@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from src.utils.credentials import Credentials
-from src.utils.rate_limiter import rate_limit
+from src.security.ratelimiter.rate_limiter import rate_limit
 
 
 @dataclass(frozen=True)

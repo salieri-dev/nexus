@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 import structlog
 import json
 
-from src.plugins.spy.spy_repository import MessageRepository
+from src.plugins.spy.repository import MessageRepository
 from src.database.client import DatabaseClient
 
 # Get the shared logger instance

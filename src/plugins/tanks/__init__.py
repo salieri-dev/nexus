@@ -1,6 +1,6 @@
 import structlog
 from src.database.client import DatabaseClient
-from src.plugins.tanks.tanks_repository import TanksRepository
+from src.plugins.tanks.repository import TanksRepository
 from src.plugins.tanks.tank_service import TankService
 
 # Get the shared logger instance
