@@ -3687,4 +3687,37 @@ a.ui-button:active,
         -webkit-transform: rotate(360deg);
         transform: rotate(360deg)
     }
+}       border: 1px solid #ccc;
+        background-color: var(--theme_default_btnbg);
+        border: 1px solid var(--theme_default_btnborder);
+        user-select: none;
+        background-repeat: repeat-x;
+        color: #f60;
+        color: var(--theme_default_link);
+        display: inline-block !important;
+        cursor: pointer
+    }
+
+    #js-mob-nav {
+        color: var(--theme_default_text)
+    }
+}
+
+@-moz-keyframes spin {
+    100% {
+        -moz-transform: rotate(360deg)
+    }
+}
+
+@-webkit-keyframes spin {
+    100% {
+        -webkit-transform: rotate(360deg)
+    }
+}
+
+@keyframes spin {
+    100% {
+        -webkit-transform: rotate(360deg);
+        transform: rotate(360deg)
+    }
 }
