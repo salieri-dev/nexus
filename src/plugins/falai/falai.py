@@ -62,7 +62,7 @@ async def transcribe_handler(client: Client, message: Message):
     # Skip if transcription contains blocked text
     blocked_texts = [
         "DimaTorzok",
-        "Продолжение следует..."
+        "Продолжение следует"
     ]
     
     if any(text in result["transcription"] for text in blocked_texts):
