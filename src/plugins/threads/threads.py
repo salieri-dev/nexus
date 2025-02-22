@@ -11,7 +11,15 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 @Client.on_message(filters.command(["bugurt"]), group=1)
 async def create_bugurt(client: Client, message: Message):
+    if len(message.command) < 2:
+        await message.reply("Укажите тему для бугурта!\nПример: /bugurt тема")
+        return
+        
     input_prompt = " ".join(message.command[1:])
+    if len(input_prompt) < 3:
+        await message.reply("Тема слишком короткая! Минимум 3 символа.")
+        return
+        
     open_router = OpenRouter().client
     
     with open(os.path.join(CURRENT_DIR, "bugurt", "bugurt_system_prompt.txt"), "r") as file:
@@ -39,7 +47,7 @@ async def create_bugurt(client: Client, message: Message):
     
     image_bytes = generate_bugurt_image(completion_response)
     if not image_bytes:
-        await message.reply("Failed to generate bugurt image")
+        await message.reply("Не удалось сгенерировать бугурт")
         return
         
     # Send the image
@@ -55,7 +63,15 @@ async def create_bugurt(client: Client, message: Message):
 
 @Client.on_message(filters.command(["greentext"]), group=1)
 async def create_greentext(client: Client, message: Message):
+    if len(message.command) < 2:
+        await message.reply("Укажите тему для гринтекста!\nПример: /greentext тема")
+        return
+        
     input_prompt = " ".join(message.command[1:])
+    if len(input_prompt) < 3:
+        await message.reply("Тема слишком короткая! Минимум 3 символа.")
+        return
+        
     open_router = OpenRouter().client
     
     with open(os.path.join(CURRENT_DIR, "greentext", "greentext_system_prompt.txt"), "r") as file:
@@ -84,7 +100,7 @@ async def create_greentext(client: Client, message: Message):
     # Use the same image generator but with greentext template
     image_bytes = generate_greentext_image(completion_response)
     if not image_bytes:
-        await message.reply("Failed to generate greentext image")
+        await message.reply("Не удалось сгенерировать гринтекст")
         return
         
     # Send the image
