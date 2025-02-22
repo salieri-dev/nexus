@@ -84,9 +84,14 @@ class ThreadImageGenerator:
     def format_story(self, text: str) -> str:
         """Format story text with proper separators"""
         if self.has_external_css:
-            # Bugurt style with @ separators
+            # Bugurt style with @ separators and > highlighting
             parts = [p.strip() for p in text.replace('\n', '@').split('@') if p.strip()]
-            return '<br>@<br>'.join(parts)
+            formatted_parts = []
+            for part in parts:
+                if part.startswith('>'):
+                    part = f'<span class="unkfunc">{part}</span>'
+                formatted_parts.append(part)
+            return '<br>@<br>'.join(formatted_parts)
         else:
             # Greentext style - make lines starting with > green
             lines = []
@@ -109,9 +114,11 @@ class ThreadImageGenerator:
         lines = text.split('<br>')
         formatted_lines = []
         for line in lines:
-            if line.strip().startswith('>') and not line.strip().startswith('>>'):
-                line = f'<span class="unkfunc">{line}</span>'
-            formatted_lines.append(line)
+            line = line.strip()
+            if line:
+                if line.startswith('>') and not line.startswith('>>'):
+                    line = f'<span class="quote">{line}</span>'
+                formatted_lines.append(line)
         
         return '<br>'.join(formatted_lines)
 
@@ -125,9 +132,18 @@ class ThreadImageGenerator:
             if not text.startswith(f">>{thread_id}"):
                 text = f">>{thread_id}\n{text}"
                 
-            # First replace newlines with <br>, then apply formatting
-            formatted_text = text.replace("\n", "<br>")
-            formatted_text = self.format_comment_text(formatted_text, thread_id)
+            # Format the text with proper line handling
+            lines = text.split("\n")
+            formatted_lines = []
+            for line in lines:
+                line = line.strip()
+                if line:
+                    if line.startswith('>>'):
+                        line = self.format_comment_text(line, thread_id)
+                    elif line.startswith('>'):
+                        line = f'<span class="unkfunc">{line}</span>'
+                    formatted_lines.append(line)
+            formatted_text = "<br>".join(formatted_lines)
             
             formatted.append({
                 "id": comment_id,
@@ -194,20 +210,9 @@ class ThreadImageGenerator:
                     if not text.startswith(f">>{thread_id}"):
                         text = f">>{thread_id}\n{text}"
                         
-                    # Split into lines and process each
-                    lines = []
-                    for line in text.split('\n'):
-                        line = line.strip()
-                        if line:
-                            if line.startswith('>>'):
-                                # Handle post reference
-                                line = self.format_comment_text(line, thread_id)
-                            elif line.startswith('>'):
-                                # Handle greentext
-                                line = f'<span class="quote">{line}</span>'
-                            lines.append(line)
-                    
-                    formatted_text = "<br>".join(lines)
+                    # First replace newlines with <br>, then apply formatting
+                    formatted_text = text.replace("\n", "<br>")
+                    formatted_text = self.format_comment_text(formatted_text, thread_id)
                     
                     formatted_replies.append({
                         "id": comment_id,

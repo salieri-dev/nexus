@@ -20,7 +20,7 @@ You must write ONE STORY, don't write alternatives. Just one funny or sad story.
 IMPORTANT: Your response must be in JSON format:
 {
   "story": "Your story with > between lines",
-  "4ch_comments": ["Comment 1", "Comment 2"]
+  "4ch_comments": ["Comment 1", "Comment 2"] # DO NOT QUOTE AUTHOR OF THREAD
 }
 There should be MAXIMUM 4 and MINIMUM 2 comments - depending on the topic and context for further jokes. Comments should be written in authentic 4chan user style, comments should not be all consisted with > quotations.
 Make sure the response can be parsed as JSON. Don't add any text before or after the JSON. Comments should be offensive as /b/ board can get. Do not use Fake: ... / Gay: ... template for comments.

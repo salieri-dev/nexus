@@ -2,6 +2,7 @@ import os
 import json
 from pyrogram import Client, filters
 from pyrogram.types import Message
+from pyrogram.enums import ParseMode
 
 from src.services.openrouter import OpenRouter
 from structlog import get_logger
@@ -71,9 +72,21 @@ async def create_bugurt(client: Client, message: Message):
     # Convert bytes to BytesIO object
     photo = BytesIO(image_bytes)
     photo.name = "bugurt.png"
+    # Parse JSON and extract story
+    response_json = json.loads(completion_response)
+    story_text = response_json.get('story', '')
+    
+    # Format story text similar to how it's done in service.py
+    # First normalize newlines to @
+    story_text = story_text.replace('\n', '@')
+    # Split, clean parts, and join with newline-@-newline
+    parts = [p.strip() for p in story_text.split('@') if p.strip()]
+    story_text = '\n@\n'.join(parts)
+    
     await message.reply_photo(
         photo=photo,
-        caption=input_prompt
+        caption=story_text,
+        quote=True, parse_mode=ParseMode.HTML
     )
 
 @Client.on_message(filters.command(["greentext"]), group=1)
@@ -133,7 +146,13 @@ async def create_greentext(client: Client, message: Message):
     photo = BytesIO(image_bytes)
     photo.name = "greentext.png"
     
+    # Parse JSON and extract story
+    response_json = json.loads(completion_response)
+    story_text = response_json.get('story', '')
+    
     await message.reply_photo(
         photo=photo,
-        caption=input_prompt
+        caption=story_text,
+        quote=True,
+        parse_mode=ParseMode.HTML
     )
