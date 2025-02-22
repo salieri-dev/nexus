@@ -87,10 +87,11 @@ async def get_chat_members(client: Client, chat_id: int) -> List[ChatMember]:
 async def woman_command(client: Client, message: Message):
     """Send random woman images with funny captions"""
     try:
-        # Check NSFW settings first
-        if not await get_chat_setting(message.chat.id, 'nsfw'):
-            await message.reply_text(NSFW_DISABLED, quote=True)
-            return
+        # Check NSFW settings in non-private chats
+        if message.chat.type != ChatType.PRIVATE:
+            if not await get_chat_setting(message.chat.id, 'nsfw'):
+                await message.reply_text(NSFW_DISABLED, quote=True)
+                return
 
         folder_path = "assets/woman"
         image_count = 4

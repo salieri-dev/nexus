@@ -1,5 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message
+from pyrogram.enums import ChatType
 from structlog import get_logger
 
 from src.plugins.spy.repository import PeerRepository
@@ -94,10 +95,15 @@ def get_help_text() -> str:
         "   🔸 Пример: `/settings disable nhentai_blur`"
     )
 
-@Client.on_message(filters.command("settings"))
+@Client.on_message(filters.command(["settings", "config"]), group=1)
 async def settings_handler(client: Client, message: Message):
     """Handle /settings command."""
     try:
+        # Check if private chat
+        if message.chat.type == ChatType.PRIVATE:
+            await message.reply_text("❌ Настройки недоступны в личных сообщениях. В личных чатах NSFW и транскрибация всегда включены.")
+            return
+
         # Initialize repository
         db_client = DatabaseClient.get_instance()
         peer_repo = PeerRepository(db_client.client)
