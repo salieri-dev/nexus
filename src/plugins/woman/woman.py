@@ -7,6 +7,13 @@ from pyrogram import Client, filters
 from pyrogram.enums import ChatType
 from pyrogram.types import ChatMember, InputMediaPhoto, Message
 
+from src.database.client import DatabaseClient
+from src.plugins.settings.repository import PeerSettingsRepository
+
+# Initialize settings repository
+db_client = DatabaseClient.get_instance()
+settings_repo = PeerSettingsRepository(db_client.client)
+
 # Message constants
 NSFW_DISABLED = "❌ NSFW контент отключен в этом чате. Администратор может включить его через /settings"
 NO_IMAGES_FOUND = "Изображения не найдены."
@@ -84,10 +91,17 @@ async def get_chat_members(client: Client, chat_id: int) -> List[ChatMember]:
 @Client.on_message(filters.command(["woman", "women", "females"]), group=2)
 async def woman_command(client: Client, message: Message):
     """Send random woman images with funny captions"""
-    folder_path = "assets/woman"
-    image_count = 4
-
     try:
+        # Check NSFW setting for the chat
+        if not message.chat.type == ChatType.PRIVATE:  # Only check in non-private chats
+            settings = await settings_repo.get_peer_settings(message.chat.id)
+            if not settings or not settings.get("nsfw_allowed"):
+                await message.reply_text(NSFW_DISABLED, quote=True)
+                return
+
+        folder_path = "assets/woman"
+        image_count = 4
+
         # Get the total count of images in the dataset
         total_images = sum(len([f for f in files if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))])
                            for _, _, files in os.walk(folder_path))
