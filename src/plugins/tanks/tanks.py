@@ -3,12 +3,12 @@ from typing import Dict
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
-import structlog
+from structlog import get_logger
 from src.database.client import DatabaseClient
 
 from src.plugins.tanks.repository import TanksRepository
 
-logger = structlog.get_logger()
+log = get_logger(__name__)
 
 # Message constants
 TANK_INVALID_TIER_MESSAGE = "❌ Ранг должен быть числом от 1 до 11"
@@ -41,7 +41,7 @@ TANK_TYPES = {
 
 
 @Client.on_message(filters.command(["tanks"]), group=1)
-async def tanks(client, message: Message):
+async def retrieve_tanks(client: Client, message: Message):
     """Handle /tanks command with various options:
     - /tanks -> random tank
     - /tanks <tier> -> tanks of specific tier
@@ -91,7 +91,7 @@ async def tanks(client, message: Message):
         return await format_tank_response(message, tanks[0])
 
     except Exception as e:
-        logger.error("Error in tanks command", error=str(e))
+        log.error("Error in tanks command", error=str(e))
         await message.reply(GENERAL_ERROR_MESSAGE)
 
 

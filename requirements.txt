@@ -3,3 +3,7 @@ motor
 structlog
 tgcrypto
 httpx[socks]
+openai
+imgkit
+pillow
+jinja2

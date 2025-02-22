@@ -1,11 +1,11 @@
 import httpx
 from typing import Dict, List
-import structlog
+from structlog import get_logger
 import json
 from src.plugins.tanks.repository import TanksRepository
 
 # Get the shared logger instance
-logger = structlog.get_logger()
+log = get_logger(__name__)
 
 API_URL = "https://tanks.gg/api/v13200ru/list"
 TANK_IMAGE_URL = "https://assets.tanks.gg/icons/ru-tanks/standard/{country}-{tank_id}.png"
@@ -24,7 +24,7 @@ class TankService:
             data = response.json()
             return data.get("tanks", [])
         except httpx.HTTPError as e:
-            logger.error("Failed to fetch tanks data", error=str(e))
+            log.error("Failed to fetch tanks data", error=str(e))
             raise
 
     def format_tank_data(self, tank: Dict) -> Dict:
@@ -59,9 +59,9 @@ class TankService:
         """Clear all tanks from the database."""
         try:
             await self.repository.collection.delete_many({})
-            logger.info("Cleared all tanks from database")
+            log.info("Cleared all tanks from database")
         except Exception as e:
-            logger.error("Failed to clear tanks", error=str(e))
+            log.error("Failed to clear tanks", error=str(e))
             raise
 
     async def sync_tanks(self, clear_existing: bool = True) -> int:
@@ -95,17 +95,17 @@ class TankService:
                     await self.repository.upsert_tank(tank)
                     count += 1
                 except Exception as e:
-                    logger.error(
+                    log.error(
                         "Failed to save tank",
                         tank_id=tank["tank_id"],
                         error=str(e)
                     )
 
-            logger.info(f"Successfully synced {count} tanks")
+            log.info(f"Successfully synced {count} tanks")
             return count
 
         except Exception as e:
-            logger.error("Failed to sync tanks", error=str(e))
+            log.error("Failed to sync tanks", error=str(e))
             raise
         finally:
             await self.http_client.aclose()

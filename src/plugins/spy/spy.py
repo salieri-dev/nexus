@@ -1,12 +1,12 @@
 from pyrogram import Client, filters
-import structlog
+from structlog import get_logger
 import json
 
 from src.plugins.spy.repository import MessageRepository
 from src.database.client import DatabaseClient
 
 # Get the shared logger instance
-logger = structlog.get_logger()
+log = get_logger(__name__)
 
 
 def serialize(obj: str) -> dict:
@@ -50,7 +50,7 @@ async def message(client: Client, message):
         msg_content = get_message_content(message)
         chat_title = "DM" if message.chat.type == "private" else message.chat.title
 
-        logger.info(
+        log.info(
             f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id}]: {msg_content}",
             message_id=message.id,
             chat_id=message.chat.id,
@@ -58,7 +58,7 @@ async def message(client: Client, message):
         )
 
     except Exception as e:
-        logger.error(
+        log.error(
             "Error logging message",
             error=str(e),
             message_id=getattr(message, 'id', None)

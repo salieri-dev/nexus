@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1" name="viewport">
+    <title>{{ thread_title }}</title>
+    <style>
+        body {
+            font-family: arial, helvetica, sans-serif;
+            font-size: 10pt;
+            background: #ffe;
+            color: #800000;
+            margin: 0 8px;
+        }
+
+        .post {
+            margin: 4px 0;
+            overflow: hidden;
+        }
+
+        .op {
+            margin-bottom: 8px;
+        }
+
+        .sideArrows {
+            color: #B7C5D9;
+            float: left;
+            margin-right: 2px;
+            margin-top: 0;
+            margin-left: 2px;
+        }
+
+        .postContainer {
+            margin: 4px 0;
+        }
+
+        .reply {
+            background-color: #f0e0d6;
+            border: 1px solid #d9bfb7;
+            padding: 2px;
+        }
+
+        .postInfo {
+            display: block;
+            width: 100%;
+            margin-left: 0;
+        }
+
+        .postInfo input {
+            margin: 1px 2px 1px 0;
+        }
+
+        .subject {
+            color: #cc1105;
+            font-weight: 700;
+        }
+
+        .name {
+            color: #117743;
+            font-weight: 700;
+        }
+
+        .postNum a {
+            text-decoration: none;
+            color: #800000;
+        }
+
+        .postNum a:hover {
+            color: red;
+        }
+
+        .file {
+            display: block;
+            margin: 5px 20px 5px 20px;
+        }
+
+        .fileText {
+            font-size: 9pt;
+            margin-left: 3px;
+            margin-bottom: 1px;
+        }
+
+        .fileThumb {
+            margin: 0 20px 5px;
+            float: left;
+        }
+
+        .fileThumb img {
+            border: 1px solid #d9bfb7;
+            max-width: 250px;
+        }
+
+        blockquote {
+            margin: 15px 25px;
+        }
+
+        .quote {
+            color: #789922;
+            font-weight: normal;
+        }
+
+        /* Regular text in comments should use the default color */
+        .postMessage {
+            color: #800000;
+        }
+
+        .quotelink {
+            color: #d00;
+            text-decoration: underline;
+        }
+
+        .postMessage {
+            margin: 15px 25px;
+            word-wrap: break-word;
+        }
+
+        .backlink {
+            font-size: 0.8em !important;
+            display: inline;
+            padding: 0;
+            padding-left: 5px;
+        }
+
+        .extButton {
+            text-decoration: none;
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            margin-bottom: -4px;
+            cursor: pointer;
+        }
+
+        .threadHideButton {
+            float: left;
+            margin-right: 5px;
+            margin-top: -1px;
+        }
+
+        .expbtn {
+            margin-right: 3px;
+            margin-left: 2px;
+        }
+
+        .postMenuBtn {
+            margin-left: 5px;
+            text-decoration: none;
+            line-height: 1em;
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            text-align: center;
+            outline: none;
+            opacity: 0.8;
+            color: #000080;
+        }
+
+        .postMenuBtn:hover {
+            opacity: 1;
+        }
+
+        .summary {
+            margin-top: 10px;
+            color: #707070;
+        }
+
+        .button {
+            background: linear-gradient(to bottom, #f8f8f8 0%, #ddd 100%);
+            border: 1px solid #ccc;
+            color: #444;
+            display: inline-block;
+            font-size: 10pt;
+            padding: 2px 4px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .button:hover {
+            background: linear-gradient(to bottom, #fff 0%, #ddd 100%);
+        }
+
+        .replylink {
+            text-decoration: underline;
+            color: #800000;
+        }
+    </style>
+</head>
+<body>
+<div class="board">
+    <div class="thread">
+        <div class="postContainer opContainer">
+            <div class="post op">
+                <div class="postInfo desktop">
+                    <input type="checkbox" value="delete">
+                    <span class="subject">{{ post.subject }}</span>
+                    <span class="nameBlock">
+                            <span class="name">{{ post.name }}</span>
+                        </span>
+                    <span class="dateTime">{{ post.datetime }}</span>
+                    <span class="postNum desktop">
+                            No.<a href="#p{{ post.id }}">{{ post.id }}</a>
+                            &nbsp;
+                            <span>[<a class="replylink" href="#">Reply</a>]</span>
+                        </span>
+                </div>
+                {% if post.has_image %}
+                <div class="file">
+                    <div class="fileText">File: <a href="{{ post.image_url | safe }}" target="_blank">{{ post.filename
+                        }}</a> ({{ post.filesize }})
+                    </div>
+                    <a class="fileThumb" href="{{ post.image_url | safe }}" target="_blank">
+                        <img alt="{{ post.filesize }}" src="{{ post.image_url | safe }}">
+                    </a>
+                </div>
+                {% endif %}
+                <blockquote class="postMessage">{{ post.message | safe }}</blockquote>
+            </div>
+        </div>
+        {% if replies %}
+        <div class="replies">
+            {% for reply in replies %}
+            <div class="postContainer replyContainer">
+                <div class="sideArrows">&gt;&gt;</div>
+                <div class="post reply">
+                    <div class="postInfo desktop">
+                        <input type="checkbox" value="delete">
+                        <span class="nameBlock">
+                                <span class="name">{{ reply.name }}</span>
+                            </span>
+                        <span class="dateTime">{{ reply.date }}</span>
+                        <span class="postNum desktop">
+                                No.<a href="#p{{ reply.id }}">{{ reply.id }}</a>
+                            </span>
+                    </div>
+                    <blockquote class="postMessage">{{ reply.text | safe }}</blockquote>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    <hr>
+</div>
+</body>
+</html>

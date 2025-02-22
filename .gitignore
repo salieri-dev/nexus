@@ -172,3 +172,4 @@ cython_debug/
 
 .idea/
 src/plugins/instagram/config
+assets/

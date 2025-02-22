@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./src:/app/src
+      - ./assets:/app/assets
     depends_on:
       - mongodb
     env_file:
