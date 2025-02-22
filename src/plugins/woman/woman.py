@@ -7,6 +7,7 @@ from pyrogram import Client, filters
 from pyrogram.enums import ChatType
 from pyrogram.types import ChatMember, InputMediaPhoto, Message
 
+from src.plugins.help import command_handler
 from src.plugins.settings.settings import get_chat_setting
 
 # Message constants
@@ -83,6 +84,11 @@ async def get_chat_members(client: Client, chat_id: int) -> List[ChatMember]:
         return []
 
 
+@command_handler(
+    commands=["woman", "women"],
+    description="Отправляет случайные изображения женщин с забавными подписями",
+    group="NSFW"
+)
 @Client.on_message(filters.command(["woman", "women", "females"]), group=2)
 async def woman_command(client: Client, message: Message):
     """Send random woman images with funny captions"""
