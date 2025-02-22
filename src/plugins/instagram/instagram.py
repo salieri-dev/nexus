@@ -4,6 +4,7 @@ from pyrogram import Client, filters
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 from src.plugins.instagram.instagram_service import InstagramMediaFetcher
 from src.utils.credentials import Credentials
+from src.utils.rate_limiter import rate_limit
 
 from structlog import get_logger
 
@@ -15,47 +16,41 @@ def extract_instagram_code(url):
     match = re.search(pattern, url)
     return match.group(1) if match else None
 
-
-# New regex pattern to match Instagram URLs
 instagram_url_pattern = r"https?://(?:www\.)?instagram\.com/(?:p|reel)/[A-Za-z0-9_-]+"
 
+# async def handle_rate_limit(event: Message):
+#     await event.reply("⚠️ Пожалуйста, подождите 10 секунд перед следующим запросом Instagram.", quote=True)
 
 @Client.on_message(filters.regex(instagram_url_pattern) & ~filters.channel, group=1)
+@rate_limit(
+    operation="instagram_handler",
+    window_seconds=10,  # One request per 10 seconds
+)
 async def insta_handler(client: Client, event: Message):
-    if not event.from_user:
-        return
-
     # Extract the Instagram URL from the message
     instagram_url = re.search(instagram_url_pattern, event.text).group(0)
 
     # Extract the media code from the URL
     media_code = extract_instagram_code(instagram_url)
 
-    # Get credentials from singleton
-    credentials = Credentials.get_instance()
-    fetcher = await InstagramMediaFetcher.create(credentials)
-    media = await fetcher.get_instagram_media(media_code)
+    try:
+        # Get credentials from singleton
+        credentials = Credentials.get_instance()
+        fetcher = await InstagramMediaFetcher.create(credentials)
+        media = await fetcher.get_instagram_media(media_code)
+    except Exception as e:
+        log.error("Error fetching Instagram media", media_code=media_code, error=str(e))
+        return
 
-    # Create a pretty message with safe description handling
     description = media.description if media.description else ""
     truncated_description = description[:200] + ("..." if len(description) > 200 else "") if description else ""
-    caption_parts = [
-        "📱 **Пост из Instagram**",
-        f"👤 **Автор:** [{media.author_name}]({media.author_url})"
-    ]
-    
+    caption_parts = ["📱 **Пост из Instagram**", f"👤 **Автор:** [{media.author_name}]({media.author_url})"]
+
     if truncated_description:
         caption_parts.extend(["", f"📝 {truncated_description}"])
-    
-    caption_parts.extend([
-        "",
-        "📊 **Статистика:**",
-        f"❤️ {media.likes:,} лайков",
-        f"💬 {media.comments:,} комментариев",
-        "",
-        f"🔗 [Открыть в Instagram]({media.source_url})"
-    ])
-    
+
+    caption_parts.extend(["", "📊 **Статистика:**", f"❤️ {media.likes:,} лайков", f"💬 {media.comments:,} комментариев", "", f"🔗 [Открыть в Instagram]({media.source_url})"])
+
     caption = "\n".join(caption_parts)
 
     def is_video(url):

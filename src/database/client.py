@@ -31,15 +31,21 @@ class DatabaseClient:
                 self.db = self.client[database_name]
                 # Verify connection
                 await self.client.admin.command('ping')
+                
+                # Initialize rate limiting
+                from src.database.rate_limit_repository import RateLimitRepository
+                rate_limit_repo = RateLimitRepository(self)
+                await rate_limit_repo.initialize()
+                
                 self._initialized = True
                 logger.info("Successfully connected to MongoDB",
                             host=self.credentials.database.host,
                             port=self.credentials.database.port)
             except Exception as e:
                 logger.error("Failed to connect to MongoDB",
-                             error=str(e),
-                             host=self.credentials.database.host,
-                             port=self.credentials.database.port)
+                              error=str(e),
+                              host=self.credentials.database.host,
+                              port=self.credentials.database.port)
                 raise
 
     @classmethod

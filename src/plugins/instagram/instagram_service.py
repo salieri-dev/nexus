@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from src.utils.credentials import Credentials
+from src.utils.rate_limiter import rate_limit
 
 
 @dataclass(frozen=True)
@@ -276,7 +277,7 @@ class InstagramMediaFetcher:
 
         Raises:
             HTTPException: If the media_id is invalid, an HTTP error occurs,
-                           the JSON response is invalid, or if there's a missing key in the response.
+                         the JSON response is invalid, or if there's a missing key in the response.
         """
         media_id_pattern = r"^[A-Za-z0-9_-]{7,39}$"
         if not re.match(media_id_pattern, media_id):
