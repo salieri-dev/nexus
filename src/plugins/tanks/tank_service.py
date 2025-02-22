@@ -7,7 +7,7 @@ from src.plugins.tanks.tanks_repository import TanksRepository
 # Get the shared logger instance
 logger = structlog.get_logger()
 
-API_URL = "https://tanks.gg/api/v13000ru/list"
+API_URL = "https://tanks.gg/api/v13200ru/list"
 TANK_IMAGE_URL = "https://assets.tanks.gg/icons/ru-tanks/standard/{country}-{tank_id}.png"
 
 class TankService:
@@ -50,7 +50,7 @@ class TankService:
             "original_id": tank.get("original_id"),
             "image_url": TANK_IMAGE_URL.format(
                 country=tank.get("nation", "unknown").lower(),
-                tank_id=tank["id"].lower()
+                tank_id=tank["id"]
             )
         }
 

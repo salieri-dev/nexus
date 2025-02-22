@@ -1,3 +1,4 @@
+import random
 from typing import Dict, List, Optional
 
 class TanksRepository:
@@ -6,6 +7,29 @@ class TanksRepository:
     def __init__(self, db):
         self.db = db["nexus"]
         self.collection = self.db["tanks"]
+
+    async def get_random_tank(self) -> Optional[Dict]:
+        """Get a random tank from the collection."""
+        pipeline = [{"$sample": {"size": 1}}]
+        cursor = self.collection.aggregate(pipeline)
+        tanks = await cursor.to_list(length=1)
+        return tanks[0] if tanks else None
+
+    async def get_tanks_by_tier(self, tier: int) -> List[Dict]:
+        """Get all tanks of a specific tier."""
+        cursor = self.collection.find({"tier": tier})
+        return await cursor.to_list(length=None)
+
+    async def search_tanks_by_name(self, name: str) -> List[Dict]:
+        """Search tanks by name using case-insensitive regex."""
+        regex = {"$regex": name, "$options": "i"}
+        cursor = self.collection.find({
+            "$or": [
+                {"name": regex},
+                {"short_name": regex}
+            ]
+        })
+        return await cursor.to_list(length=None)
 
     async def upsert_tank(self, tank_data: Dict) -> str:
         """
