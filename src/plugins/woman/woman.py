@@ -8,7 +8,7 @@ from pyrogram.enums import ChatType
 from pyrogram.types import ChatMember, InputMediaPhoto, Message
 
 from src.plugins.help import command_handler
-from src.utils.permissions import requires_setting
+from src.security.permissions import requires_setting
 NO_IMAGES_FOUND = "Изображения не найдены."
 GENERAL_ERROR = "❌ Произошла ошибка! Попробуйте позже."
 
