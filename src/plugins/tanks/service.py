@@ -18,14 +18,10 @@ class TankService:
 
     async def fetch_tanks(self) -> List[Dict]:
         """Fetch tanks data from the API."""
-        try:
-            response = await self.http_client.get(API_URL)
-            response.raise_for_status()
-            data = response.json()
-            return data.get("tanks", [])
-        except httpx.HTTPError as e:
-            log.error("Failed to fetch tanks data", error=str(e))
-            raise
+        response = await self.http_client.get(API_URL)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("tanks", [])
 
     def format_tank_data(self, tank: Dict) -> Dict:
         """Format tank data and add image URL."""
