@@ -8,10 +8,7 @@ from pyrogram.enums import ChatType
 from pyrogram.types import ChatMember, InputMediaPhoto, Message
 
 from src.plugins.help import command_handler
-from src.plugins.settings.settings import get_chat_setting
-
-# Message constants
-NSFW_DISABLED = "❌ NSFW контент отключен в этом чате. Администратор может включить его через /settings"
+from src.utils.permissions import requires_setting
 NO_IMAGES_FOUND = "Изображения не найдены."
 GENERAL_ERROR = "❌ Произошла ошибка! Попробуйте позже."
 
@@ -90,15 +87,10 @@ async def get_chat_members(client: Client, chat_id: int) -> List[ChatMember]:
     group="NSFW"
 )
 @Client.on_message(filters.command(["woman", "women", "females"]), group=2)
+@requires_setting('nsfw')
 async def woman_command(client: Client, message: Message):
     """Send random woman images with funny captions"""
     try:
-        # Check NSFW settings in non-private chats
-        if message.chat.type != ChatType.PRIVATE:
-            if not await get_chat_setting(message.chat.id, 'nsfw'):
-                await message.reply_text(NSFW_DISABLED, quote=True)
-                return
-
         folder_path = "assets/woman"
         image_count = 4
 
