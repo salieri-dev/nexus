@@ -39,8 +39,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    labels:
-      - "com.docker.compose.schedule=0 * * * *"
+
 
   mongodb:
     image: mongo:latest
