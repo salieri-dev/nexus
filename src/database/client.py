@@ -33,7 +33,7 @@ class DatabaseClient:
                 await self.client.admin.command('ping')
                 
                 # Initialize rate limiting
-                from src.security.ratelimiter.repository import RateLimitRepository
+                from src.database.ratelimit_repository import RateLimitRepository
                 rate_limit_repo = RateLimitRepository(self)
                 await rate_limit_repo.initialize()
                 

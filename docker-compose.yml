@@ -18,6 +18,30 @@ services:
       - PYTHONFAULTHANDLER=1
       - DOCKER_ENV=true
 
+  sentiment-analysis:
+    build:
+      context: ./jobs/sentiment
+      dockerfile: Dockerfile
+    env_file:
+      - ./jobs/sentiment/.env
+    volumes:
+      - ./logs:/app/logs 
+      - ./cache:/app/cache 
+    networks:
+      - app-network
+    runtime: nvidia
+    deploy:
+      restart_policy:
+        condition: none
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    labels:
+      - "com.docker.compose.schedule=0 * * * *"
+
   mongodb:
     image: mongo:latest
     restart: always

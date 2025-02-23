@@ -1,6 +1,4 @@
 from typing import Dict, List, Optional
-from src.database.client import DatabaseClient
-
 
 class MessageRepository:
     """Repository for handling message-related database operations."""

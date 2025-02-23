@@ -1,8 +1,9 @@
+from datetime import datetime, timezone
 from pyrogram import Client, filters
 from structlog import get_logger
 import json
 
-from src.plugins.spy.repository import MessageRepository, PeerRepository
+from src.database.message_repository import MessageRepository, PeerRepository
 from src.database.client import DatabaseClient
 
 # Get the shared logger instance
@@ -50,8 +51,12 @@ async def message(client: Client, message):
         # Get or create peer config
         peer_config = await peer_repo.get_peer_config(message.chat.id)
         
+        # Prepare message data with created_at
+        message_data = serialize(message)
+        message_data['created_at'] = datetime.now(timezone.utc)
+        
         # Store message
-        await message_repo.insert_message(serialize(message))
+        await message_repo.insert_message(message_data)
 
         # Build logging data
         user_identifier = get_user_identifier(message)

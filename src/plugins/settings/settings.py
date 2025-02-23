@@ -3,7 +3,7 @@ from pyrogram.types import Message
 from pyrogram.enums import ChatType
 from structlog import get_logger
 
-from src.plugins.spy.repository import PeerRepository
+from src.database.message_repository import PeerRepository
 from src.database.client import DatabaseClient
 
 log = get_logger(__name__)

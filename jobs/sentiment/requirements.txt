@@ -1,0 +1,6 @@
+torch>=2.0.0
+transformers>=4.30.0
+motor>=3.1.1
+pymongo>=4.3.3
+tqdm>=4.65.0
+python-dotenv>=1.0.0

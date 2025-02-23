@@ -174,3 +174,4 @@ cython_debug/
 src/plugins/instagram/config
 assets/
 scripts/
+cache/
