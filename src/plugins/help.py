@@ -10,6 +10,7 @@ log = get_logger(__name__)
 # Store for command help information
 command_help: Dict[str, Dict] = {}
 
+
 def command_handler(commands: List[str], description: str, example: str = None, group: str = "Общие"):
     """Decorator to register command help information.
     
@@ -19,6 +20,7 @@ def command_handler(commands: List[str], description: str, example: str = None, 
         example: Optional example usage
         group: Command group for organization
     """
+
     def decorator(func):
         # Register help info for each command
         for cmd in commands:
@@ -27,12 +29,15 @@ def command_handler(commands: List[str], description: str, example: str = None, 
                 'example': example,
                 'group': group
             }
-        
+
         @wraps(func)
         async def wrapper(*args, **kwargs):
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 @Client.on_message(filters.command("help"))
 async def help_handler(client: Client, message: Message):
@@ -40,7 +45,7 @@ async def help_handler(client: Client, message: Message):
     try:
         # Group commands by handler (using description as key)
         handlers: Dict[str, Dict] = {}
-        
+
         for cmd, info in command_help.items():
             key = f"{info['group']}:{info['description']}"
             if key not in handlers:
@@ -51,7 +56,7 @@ async def help_handler(client: Client, message: Message):
                     'group': info['group']
                 }
             handlers[key]['commands'].append(cmd)
-        
+
         # Define emoji mapping for groups
         group_emojis = {
             'Утилиты': '📎',
@@ -69,19 +74,19 @@ async def help_handler(client: Client, message: Message):
             group = handler['group']
             if group not in groups:
                 groups[group] = []
-            
+
             # Sort commands for consistent output
             handler['commands'].sort()
             groups[group].append(handler)
-        
+
         # Build help message
         help_text = []
-        
+
         # Add command sections
         for group, handlers in sorted(groups.items()):
             emoji = group_emojis.get(group, '🔹')
             help_text.append(f"\n{emoji} {group}:")
-            
+
             for handler in sorted(handlers, key=lambda x: x['commands'][0]):
                 commands = ', '.join(f"/{cmd}" for cmd in handler['commands'])
                 # Add NSFW emoji if in NSFW group
@@ -97,7 +102,7 @@ async def help_handler(client: Client, message: Message):
             "\n>Команды отмеченные 🔞 могут быть использованы в групповых чатах только если в настройках разрешен соответствующий контент. "
             "Бот находится в стадии бета-тестирования, могут быть баги и ошибки. В случае предложений или ошибок, контакт для связи: @not_salieri"
         ])
-        
+
         await message.reply_text(
             "\n".join(help_text),
             quote=True

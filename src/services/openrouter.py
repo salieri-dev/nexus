@@ -33,17 +33,17 @@ class OpenRouter:
     def _init_client(self) -> None:
         credentials = Credentials.get_instance()
         proxy_config = credentials.proxy
-        
+
         transport = httpx.HTTPTransport(retries=3, verify=False)
         http_client_args = {
             "timeout": 120.0,
             "transport": transport
         }
-        
+
         if proxy_config.enabled and proxy_config.host and proxy_config.port:
             proxy_url = f"socks5://{proxy_config.host}:{proxy_config.port}"
             http_client_args["proxy"] = proxy_url
-        
+
         self._client = AsyncOpenAI(
             http_client=httpx.AsyncClient(**http_client_args),
             api_key=credentials.api.openrouter_key,

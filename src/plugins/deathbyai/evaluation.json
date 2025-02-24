@@ -1,26 +1,26 @@
 {
-    "name": "survive_the_ai",
-    "strict": true,
-    "schema": {
-      "type": "object",
-      "properties": {
-        "decision": {
-          "type": "string",
-          "description": "Результат попытки выживания - success или failure. Успех - это любой побег или там где игрок выживает полностью без негативных последствий. Иначе - смерть.",
-          "enum": [
-            "success",
-            "failure"
-          ]
-        },
-        "details": {
-          "type": "string",
-          "description": "Короткий рассказ, объясняющий результат стратегии игрока. Она должна состоять из 2-3 предложений."
-        }
+  "name": "survive_the_ai",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "decision": {
+        "type": "string",
+        "description": "Результат попытки выживания - success или failure. Успех - это любой побег или там где игрок выживает полностью без негативных последствий. Иначе - смерть.",
+        "enum": [
+          "success",
+          "failure"
+        ]
       },
-      "required": [
-        "decision",
-        "details"
-      ],
-      "additionalProperties": false
-    }
+      "details": {
+        "type": "string",
+        "description": "Короткий рассказ, объясняющий результат стратегии игрока. Она должна состоять из 2-3 предложений."
+      }
+    },
+    "required": [
+      "decision",
+      "details"
+    ],
+    "additionalProperties": false
   }
+}

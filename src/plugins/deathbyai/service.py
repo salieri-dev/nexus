@@ -10,6 +10,7 @@ from src.plugins.deathbyai.repository import DeathByAIRepository
 
 log = get_logger(__name__)
 
+
 class DeathByAIService:
     """Service for managing Death by AI game logic"""
     _instance = None
@@ -35,7 +36,8 @@ class DeathByAIService:
         with open("src/plugins/deathbyai/evaluation.json", "r") as f:
             return json.load(f)["schema"]
 
-    async def start_game(self, repository: DeathByAIRepository, chat_id: int, message_id: int, initiator_id: int) -> Optional[Dict[str, Any]]:
+    async def start_game(self, repository: DeathByAIRepository, chat_id: int, message_id: int, initiator_id: int) -> \
+    Optional[Dict[str, Any]]:
         """Start a new game if none is active"""
         # Check for active game
         active_game = await repository.get_active_game(chat_id)
@@ -62,20 +64,21 @@ class DeathByAIService:
         """Get remaining time in seconds"""
         if not game.get("end_time"):
             return 0
-        
+
         remaining = (game["end_time"] - datetime.utcnow()).total_seconds()
         return max(0, int(remaining))
 
-    def format_game_message(self, game: Dict[str, Any], show_button: bool = True) -> Tuple[str, Optional[InlineKeyboardMarkup]]:
+    def format_game_message(self, game: Dict[str, Any], show_button: bool = True) -> Tuple[
+        str, Optional[InlineKeyboardMarkup]]:
         """Format game message with timer and submitted strategies"""
         remaining = self.get_remaining_time(game)
         is_finished = game.get("status") == "finished"
-        
+
         message = [
             "**🎯 Игра завершена!**" if is_finished else "**🎯 Игра началась!**",
             f"\n**📜 Сценарий:**\n>{game['scenario']}"
         ]
-        
+
         if not is_finished:
             message.extend([
                 "\n**📝 Ответьте на это сообщение вашей стратегией выживания!**",
@@ -96,7 +99,8 @@ class DeathByAIService:
 
         return "\n".join(message), keyboard
 
-    async def submit_strategy(self, repository: DeathByAIRepository, chat_id: int, user_id: int, username: str, strategy: str) -> Tuple[bool, str]:
+    async def submit_strategy(self, repository: DeathByAIRepository, chat_id: int, user_id: int, username: str,
+                              strategy: str) -> Tuple[bool, str]:
         """Submit a player's strategy for the active game"""
         # Validate strategy length
         if len(strategy.strip()) < 10:
@@ -156,14 +160,14 @@ Remember:
                 temperature=0.7,
                 response_format={"type": "json_schema", "schema": self.evaluation_schema}
             )
-            
+
             result = json.loads(completion.choices[0].message.content)
             if "decision" in result and "details" in result:
                 return result
-                
+
         except Exception as e:
             log.error("Failed to evaluate strategy", error=str(e))
-            
+
         return None
 
     async def end_game(self, repository: DeathByAIRepository, chat_id: int) -> Optional[Dict[str, Any]]:
@@ -206,7 +210,7 @@ Remember:
                 f"__{player['strategy']}__\n\n"
                 f"**🤖 Вердикт AI:**\n>{evaluation['details']}"
             )
-            
+
             if evaluation["decision"] == "success":
                 survivors.append(result_text)
             else:
@@ -241,7 +245,8 @@ Remember:
             f"[Результаты]({results_link})"
         )
 
-    async def validate_game_message(self, repository: DeathByAIRepository, message_id: int, reply_message_id: int) -> bool:
+    async def validate_game_message(self, repository: DeathByAIRepository, message_id: int,
+                                    reply_message_id: int) -> bool:
         """Validate that a reply is to the correct game message"""
         game = await repository.get_game_by_message(message_id)
         return game is not None and game["status"] == "active" and game["message_id"] == reply_message_id

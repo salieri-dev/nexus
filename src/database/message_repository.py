@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional
 
+
 class MessageRepository:
     """Repository for handling message-related database operations."""
 
@@ -81,12 +82,12 @@ class PeerRepository:
 
         # Check database
         config = await self.collection.find_one({"chat_id": chat_id})
-        
+
         if not config:
             # Create new config with defaults
             config = {"chat_id": chat_id, **self.DEFAULT_CONFIG}
             await self.collection.insert_one(config)
-        
+
         # Cache the config
         self._config_cache[chat_id] = config
         return config
@@ -95,7 +96,7 @@ class PeerRepository:
         """Update peer configuration with new values."""
         # Validate updates
         valid_updates = {k: v for k, v in updates.items() if k in self.DEFAULT_CONFIG}
-        
+
         if not valid_updates:
             return await self.get_peer_config(chat_id)
 

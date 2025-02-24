@@ -16,7 +16,9 @@ def extract_instagram_code(url):
     match = re.search(pattern, url)
     return match.group(1) if match else None
 
+
 instagram_url_pattern = r"https?://(?:www\.)?instagram\.com/(?:p|reel)/[A-Za-z0-9_-]+"
+
 
 # async def handle_rate_limit(event: Message):
 #     await event.reply("⚠️ Пожалуйста, подождите 10 секунд перед следующим запросом Instagram.", quote=True)
@@ -49,7 +51,9 @@ async def instagram_handler(client: Client, event: Message):
     if truncated_description:
         caption_parts.extend(["", f"📝 {truncated_description}"])
 
-    caption_parts.extend(["", "📊 **Статистика:**", f"❤️ {media.likes:,} лайков", f"💬 {media.comments:,} комментариев", "", f"🔗 [Открыть в Instagram]({media.source_url})"])
+    caption_parts.extend(
+        ["", "📊 **Статистика:**", f"❤️ {media.likes:,} лайков", f"💬 {media.comments:,} комментариев", "",
+         f"🔗 [Открыть в Instagram]({media.source_url})"])
 
     caption = "\n".join(caption_parts)
 

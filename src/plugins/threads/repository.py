@@ -6,6 +6,7 @@ from structlog import get_logger
 
 log = get_logger(__name__)
 
+
 class ThreadsRepository:
     """Repository for managing thread data"""
 
@@ -61,8 +62,8 @@ class ThreadsRepository:
             List[Dict]: List of thread documents
         """
         cursor = self.collection.find({"user_id": user_id}) \
-                              .sort("timestamp", -1) \
-                              .limit(limit)
+            .sort("timestamp", -1) \
+            .limit(limit)
         return await cursor.to_list(length=None)
 
     async def get_chat_threads(self, chat_id: int, limit: int = 10) -> List[Dict]:
@@ -77,8 +78,8 @@ class ThreadsRepository:
             List[Dict]: List of thread documents
         """
         cursor = self.collection.find({"chat_id": chat_id}) \
-                              .sort("timestamp", -1) \
-                              .limit(limit)
+            .sort("timestamp", -1) \
+            .limit(limit)
         return await cursor.to_list(length=None)
 
     async def search_threads_by_theme(self, theme: str) -> List[Dict]:
@@ -92,7 +93,7 @@ class ThreadsRepository:
             List[Dict]: List of matching thread documents
         """
         cursor = self.collection.find({"$text": {"$search": theme}}) \
-                              .sort("timestamp", -1)
+            .sort("timestamp", -1)
         return await cursor.to_list(length=None)
 
     async def get_thread_by_id(self, thread_id: str) -> Optional[Dict]:
@@ -119,8 +120,8 @@ class ThreadsRepository:
             List[Dict]: List of thread documents
         """
         cursor = self.collection.find({"command": command}) \
-                              .sort("timestamp", -1) \
-                              .limit(limit)
+            .sort("timestamp", -1) \
+            .limit(limit)
         return await cursor.to_list(length=None)
 
     async def get_user_command_stats(self, user_id: int) -> Dict[str, int]:

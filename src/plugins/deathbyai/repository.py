@@ -8,6 +8,7 @@ from structlog import get_logger
 
 log = get_logger(__name__)
 
+
 class DeathByAIRepository:
     """Repository for managing Death by AI game data"""
 
@@ -16,7 +17,7 @@ class DeathByAIRepository:
         self.db = client["nexus"]
         self.games = self.db["deathbyai_games"]
         self.scenarios = self.db["deathbyai_scenarios"]
-        
+
     async def create_indexes(self):
         """Create necessary indexes"""
         # Game indexes
@@ -26,7 +27,7 @@ class DeathByAIRepository:
         ])
         await self.games.create_index([("message_id", 1)])
         await self.games.create_index([("initiator_id", 1)])
-        
+
         # Scenario indexes
         await self.scenarios.create_index([("difficulty", 1)])
         await self.scenarios.create_index([("created_at", -1)])
@@ -43,7 +44,8 @@ class DeathByAIRepository:
             return scenario
         return None
 
-    async def create_game(self, chat_id: int, message_id: int, scenario: str, initiator_id: int, end_time: datetime) -> Dict[str, Any]:
+    async def create_game(self, chat_id: int, message_id: int, scenario: str, initiator_id: int, end_time: datetime) -> \
+    Dict[str, Any]:
         """
         Create a new game instance.
         
@@ -67,7 +69,7 @@ class DeathByAIRepository:
             "status": "active",
             "players": []
         }
-        
+
         result = await self.games.insert_one(game)
         game["_id"] = result.inserted_id
         return game
@@ -102,11 +104,11 @@ class DeathByAIRepository:
         scenarios = []
         async for scenario in self.scenarios.aggregate(pipeline):
             scenarios.append(scenario)
-        
+
         if not scenarios:
             log.error("No scenarios found in database")
             return None
-            
+
         log.info("Got random scenario", scenario=scenarios[0])
         return scenarios[0]
 
@@ -157,7 +159,7 @@ class DeathByAIRepository:
             "status": status,
             "end_time": datetime.utcnow() if status == "finished" else None
         }
-        
+
         result = await self.games.update_one(
             {"_id": game_id},
             {"$set": update_data}
@@ -213,8 +215,8 @@ class DeathByAIRepository:
             List[Dict[str, Any]]: List of game documents
         """
         cursor = self.games.find({"initiator_id": user_id}) \
-                          .sort("start_time", -1) \
-                          .limit(limit)
+            .sort("start_time", -1) \
+            .limit(limit)
         return await cursor.to_list(length=None)
 
     async def get_chat_games(self, chat_id: int, limit: int = 10) -> List[Dict[str, Any]]:
@@ -229,6 +231,6 @@ class DeathByAIRepository:
             List[Dict[str, Any]]: List of game documents
         """
         cursor = self.games.find({"chat_id": chat_id}) \
-                          .sort("start_time", -1) \
-                          .limit(limit)
+            .sort("start_time", -1) \
+            .limit(limit)
         return await cursor.to_list(length=None)

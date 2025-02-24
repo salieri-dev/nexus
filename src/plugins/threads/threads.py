@@ -19,11 +19,13 @@ log = get_logger(__name__)
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
 def load_schema(filename: str) -> dict:
     """Load JSON schema from file"""
     schema_path = os.path.join(CURRENT_DIR, filename)
     with open(schema_path, "r") as f:
         return json.load(f)["schema"]
+
 
 def format_story_text(text: str, command: str) -> str:
     """Format story text based on command type"""
@@ -36,14 +38,15 @@ def format_story_text(text: str, command: str) -> str:
         # Greentext style - just preserve newlines
         return text
 
+
 async def handle_thread_generation(
-    message: Message,
-    command: str,
-    system_prompt_path: str,
-    schema_path: str,
-    image_generator: Callable[[str], Optional[bytes]],
-    error_message: str,
-    prompt_language: str = "ru"
+        message: Message,
+        command: str,
+        system_prompt_path: str,
+        schema_path: str,
+        image_generator: Callable[[str], Optional[bytes]],
+        error_message: str,
+        prompt_language: str = "ru"
 ) -> None:
     """Generic handler for thread generation commands"""
     try:
@@ -62,7 +65,7 @@ async def handle_thread_generation(
         input_prompt = " ".join(message.command[1:])
         if len(input_prompt) < 3:
             await message.reply(
-                "Тема слишком короткая! Минимум 3 символа." if prompt_language == "ru" 
+                "Тема слишком короткая! Минимум 3 символа." if prompt_language == "ru"
                 else "Theme too short! Minimum 3 characters.",
                 quote=True
             )
@@ -74,7 +77,8 @@ async def handle_thread_generation(
         schema = load_schema(schema_path)
 
         # Generate AI response
-        reply_msg = await message.reply("⚙️ Генерирую пост..." if prompt_language == "ru" else "⚙️ Generating post...", quote=True)
+        reply_msg = await message.reply("⚙️ Генерирую пост..." if prompt_language == "ru" else "⚙️ Generating post...",
+                                        quote=True)
         try:
             open_router = OpenRouter().client
             completion = await open_router.chat.completions.create(
@@ -86,9 +90,9 @@ async def handle_thread_generation(
                     {
                         "role": "user",
                         "content": (
-                            f"Создай {command}-тред историю с темой '{input_prompt}'" if prompt_language == "ru"
-                            else f"Create a {command} story with theme '{input_prompt}'"
-                        ) + ". Response must be in JSON format as described in the instructions."
+                                       f"Создай {command}-тред историю с темой '{input_prompt}'" if prompt_language == "ru"
+                                       else f"Create a {command} story with theme '{input_prompt}'"
+                                   ) + ". Response must be in JSON format as described in the instructions."
                     }
                 ],
                 model="anthropic/claude-3.5-sonnet:beta",
@@ -96,7 +100,7 @@ async def handle_thread_generation(
                 max_tokens=5000,
                 response_format={"type": "json_schema", "schema": schema}
             )
-            
+
             completion_response = completion.choices[0].message.content
             log.info(f"AI Response: {completion_response}")
 
@@ -110,7 +114,7 @@ async def handle_thread_generation(
             response_json = json.loads(completion_response)
             story_text = response_json.get('story', '')
             comments = response_json.get('2ch_comments' if command == 'bugurt' else '4ch_comments', [])
-            
+
             # Store thread data
             thread_data = {
                 "user_id": message.from_user.id,
@@ -125,7 +129,7 @@ async def handle_thread_generation(
                 "language": "ru" if command == "bugurt" else "en"
             }
             await repository.save_thread(thread_data)
-            
+
             # Format story text for display
             formatted_story = format_story_text(story_text, command)
 
@@ -158,6 +162,7 @@ async def handle_thread_generation(
             quote=True
         )
 
+
 @Client.on_message(filters.command(["bugurt"]), group=1)
 async def create_bugurt(client: Client, message: Message):
     """Handler for /bugurt command"""
@@ -170,6 +175,7 @@ async def create_bugurt(client: Client, message: Message):
         error_message="Не удалось сгенерировать бугурт",
         prompt_language="ru"
     )
+
 
 @Client.on_message(filters.command(["greentext"]), group=1)
 async def create_greentext(client: Client, message: Message):

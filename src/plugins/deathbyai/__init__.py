@@ -8,6 +8,7 @@ from .deathbyai import start_game_command, handle_strategy, end_game_callback
 # Get the shared logger instance
 logger = structlog.get_logger()
 
+
 async def init_deathbyai():
     """Initialize Death by AI plugin and create indexes."""
     try:
@@ -22,6 +23,7 @@ async def init_deathbyai():
         logger.info("Death by AI indexes created")
     except Exception as e:
         logger.error("Failed to create Death by AI indexes", error=str(e))
+
 
 # Export the initialization function and handlers
 __all__ = ['init_deathbyai', 'start_game_command', 'handle_strategy', 'end_game_callback']

@@ -11,7 +11,7 @@ logger = structlog.get_logger()
 
 class RateLimitRepository:
     """Repository for handling rate limit operations."""
-    
+
     # Class-level lock and cache
     _lock = asyncio.Lock()
     _cache: Dict[Tuple[int, str], float] = {}
@@ -34,10 +34,10 @@ class RateLimitRepository:
         )
 
     async def check_rate_limit(
-        self,
-        user_id: int,
-        operation: str,
-        window_seconds: int
+            self,
+            user_id: int,
+            operation: str,
+            window_seconds: int
     ) -> bool:
         """
         Check if operation is allowed using thread-safe class-level cache.
@@ -52,16 +52,16 @@ class RateLimitRepository:
         """
         key = (user_id, operation)
         current_time = time.time()
-        
+
         async with self._lock:
             # Check cache
             last_request = self._cache.get(key, 0)
             if current_time - last_request < window_seconds:
                 return False
-                
+
             # Update cache immediately
             self._cache[key] = current_time
-            
+
             # Update MongoDB asynchronously
             now = datetime.utcnow()
             try:
@@ -72,5 +72,5 @@ class RateLimitRepository:
                 )
             except Exception as e:
                 logger.error("Failed to update rate limit in MongoDB", error=str(e))
-                
+
             return True

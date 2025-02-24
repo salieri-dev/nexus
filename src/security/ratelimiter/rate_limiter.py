@@ -8,9 +8,9 @@ logger = structlog.get_logger()
 
 
 def rate_limit(
-    operation: Optional[str] = None,
-    window_seconds: int = 10,  # Default 10 second window
-    on_rate_limited: Optional[Callable] = None
+        operation: Optional[str] = None,
+        window_seconds: int = 10,  # Default 10 second window
+        on_rate_limited: Optional[Callable] = None
 ):
     """
     Rate limiting decorator that uses timestamps to limit operations.
@@ -33,6 +33,7 @@ def rate_limit(
             # Only one request per 10 seconds per user allowed
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
@@ -42,14 +43,14 @@ def rate_limit(
                 if not event or not hasattr(event, 'from_user') or not event.from_user:
                     logger.warning("No user found in message event, skipping rate limit")
                     return await func(*args, **kwargs)
-                    
+
                 user_id = event.from_user.id
                 op_name = operation or func.__name__
 
                 # Check rate limit
                 db_client = DatabaseClient.get_instance()
                 rate_limit_repo = RateLimitRepository(db_client)
-                
+
                 allowed = await rate_limit_repo.check_rate_limit(
                     user_id=user_id,
                     operation=op_name,
@@ -79,4 +80,5 @@ def rate_limit(
                 return await func(*args, **kwargs)
 
         return wrapper
+
     return decorator

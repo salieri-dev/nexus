@@ -38,7 +38,7 @@ async def is_user_authorized(client: Client, chat_id: int, user_id: int, game_in
     """Check if user is authorized to end game"""
     if user_id == game_initiator_id:
         return True
-        
+
     member = await client.get_chat_member(chat_id, user_id)
     return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]
 
@@ -80,7 +80,7 @@ async def start_game_command(client: Client, message: Message):
         try:
             while service.get_remaining_time(game) > 0:
                 await asyncio.sleep(5)  # Update every 5 seconds
-                
+
                 try:
                     # Get fresh game state
                     game = await repository.get_game_by_message(status_msg.id)
@@ -107,7 +107,7 @@ async def start_game_command(client: Client, message: Message):
                         # Send results as new message
                         results = service.format_results(final_game)
                         results_msg = await message.reply_text(results, quote=False)
-                        
+
                         try:
                             # Update original message with game state without button
                             message_text, _ = service.format_game_message(final_game, show_button=False)
@@ -115,7 +115,7 @@ async def start_game_command(client: Client, message: Message):
                         except Exception as e:
                             if "MESSAGE_NOT_MODIFIED" not in str(e):
                                 log.error("Error updating game message", error=str(e))
-                        
+
                         try:
                             # Update with end message and link to results
                             end_message = service.format_end_message(final_game, results_msg.id)
@@ -146,9 +146,9 @@ async def handle_strategy(client: Client, message: Message):
     try:
         # Validate reply is to game message
         if not await service.validate_game_message(
-            repository=repository,
-            message_id=message.reply_to_message.id,
-            reply_message_id=message.reply_to_message.id
+                repository=repository,
+                message_id=message.reply_to_message.id,
+                reply_message_id=message.reply_to_message.id
         ):
             return
 
@@ -165,7 +165,7 @@ async def handle_strategy(client: Client, message: Message):
             try:
                 # Delete the strategy message
                 await message.delete()
-                
+
                 # Get updated game state and refresh the game message
                 game = await repository.get_game_by_message(message.reply_to_message.id)
                 if game:
@@ -210,7 +210,7 @@ async def end_game_callback(client: Client, callback_query: CallbackQuery):
         # Send results first to get message ID
         results = service.format_results(final_game)
         results_msg = await message.reply_text(results, quote=False)
-        
+
         try:
             # Update original message with game state without button
             message_text, _ = service.format_game_message(final_game, show_button=False)
@@ -218,7 +218,7 @@ async def end_game_callback(client: Client, callback_query: CallbackQuery):
         except Exception as e:
             if "MESSAGE_NOT_MODIFIED" not in str(e):
                 log.error("Error updating game message", error=str(e))
-        
+
         try:
             # Then update with end message and link
             end_message = service.format_end_message(final_game, results_msg.id)
@@ -231,4 +231,3 @@ async def end_game_callback(client: Client, callback_query: CallbackQuery):
     except Exception as e:
         log.error("Error ending game", error=str(e))
         await callback_query.answer(GENERAL_ERROR, show_alert=True)
-

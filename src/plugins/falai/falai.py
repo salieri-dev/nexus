@@ -16,6 +16,7 @@ TRANSCRIPTION_ERROR = "❌ Не удалось транскрибировать 
 
 from src.security.ratelimiter.rate_limiter import rate_limit
 
+
 @Client.on_message(filters.voice | filters.audio | filters.video_note, group=1)  # Changed to group 1 to run earlier
 @rate_limit(operation="transcribe", window_seconds=20)
 async def transcribe_handler(client: Client, message: Message):
@@ -64,7 +65,7 @@ async def transcribe_handler(client: Client, message: Message):
         "DimaTorzok",
         "Продолжение следует"
     ]
-    
+
     if any(text in result["transcription"] for text in blocked_texts):
         log.info("Skipping transcription containing blocked text")
         return
@@ -74,5 +75,5 @@ async def transcribe_handler(client: Client, message: Message):
         await message.reply_text(
             TRANSCRIPTION_SUCCESS.format(result["transcription"]),
             quote=True,
-            parse_mode=ParseMode.DEFAULT 
+            parse_mode=ParseMode.DEFAULT
         )

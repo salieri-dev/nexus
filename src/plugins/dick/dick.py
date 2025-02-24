@@ -88,7 +88,7 @@ def calculate_dong_attributes(username: str) -> Dict[str, Any]:
 
 
 def calculate_satisfaction_rating(
-    length: float, girth: float, rigidity: float, stamina: float, sensitivity: float
+        length: float, girth: float, rigidity: float, stamina: float, sensitivity: float
 ) -> Tuple[float, str]:
     length_score = min(max((length - 13) / 5, 0), 2)
     girth_score = min(max((girth - 10) / 3, 0), 2)
@@ -288,7 +288,7 @@ async def dong_command(client: Client, message: Message):
     """Рассчитывает (100% аккуратно) размер вашего члена"""
     try:
         username = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else (
-            message.from_user.username or message.from_user.first_name
+                message.from_user.username or message.from_user.first_name
         )
         attributes = calculate_dong_attributes(username)
         image_buffer = plot_attributes(attributes)

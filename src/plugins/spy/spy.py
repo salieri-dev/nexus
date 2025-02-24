@@ -43,18 +43,18 @@ async def message(client: Client, message):
     try:
         # Use shared database instance
         db_client = DatabaseClient.get_instance()
-        
+
         # Initialize repositories
         message_repo = MessageRepository(db_client.client)
         peer_repo = PeerRepository(db_client.client)
-        
+
         # Get or create peer config
         peer_config = await peer_repo.get_peer_config(message.chat.id)
-        
+
         # Prepare message data with created_at
         message_data = serialize(message)
         message_data['created_at'] = datetime.now(timezone.utc)
-        
+
         # Store message
         await message_repo.insert_message(message_data)
 
@@ -65,7 +65,7 @@ async def message(client: Client, message):
 
         # Include peer config status in logging
         config_status = {k: v for k, v in peer_config.items() if k != 'chat_id'}
-        
+
         log.info(
             f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id}]: {msg_content}",
             message_id=message.id,

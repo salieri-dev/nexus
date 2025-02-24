@@ -175,17 +175,17 @@ class InstagramMediaFetcher:
             return None
         if not candidates:
             return None
-            
+
         # Validate candidate structure
         valid_candidates = [
-            c for c in candidates 
+            c for c in candidates
             if isinstance(c, dict) and "width" in c and "height" in c and "url" in c
         ]
-        
+
         if not valid_candidates:
             logger.warning("No valid candidates found with required fields (width, height, url)")
             return None
-            
+
         max_resolution = max(valid_candidates, key=lambda x: x["width"] * x["height"])
         return max_resolution["url"]
 
@@ -312,7 +312,7 @@ class InstagramMediaFetcher:
             raise
 
         items = json_data.get("data", {}).get("xdt_api__v1__media__shortcode__web_info", {}).get("items")
-        
+
         if not items or not isinstance(items, list) or len(items) == 0:
             error_msg = f"Media with id '{media_id}' not found or has unexpected structure"
             logger.error(error_msg)

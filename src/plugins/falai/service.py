@@ -6,6 +6,7 @@ from structlog import get_logger
 
 log = get_logger(__name__)
 
+
 async def upload_file(file_path: str) -> str:
     """
     Upload a file to fal-ai.
@@ -21,9 +22,10 @@ async def upload_file(file_path: str) -> str:
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
-        
+
     log.info(f"Uploading file: {file_path}")
     return await fal_client.upload_file_async(file_path)
+
 
 async def transcribe_audio(file_path: str, language: str = "ru") -> Dict[str, Any]:
     """
@@ -38,28 +40,29 @@ async def transcribe_audio(file_path: str, language: str = "ru") -> Dict[str, An
     """
     try:
         url = await upload_file(file_path)
-        
+
         log.info("Submitting transcription job")
         handler = await fal_client.submit_async(
             "fal-ai/wizper",
             arguments={"audio_url": url, "task": "transcribe", "language": language}
         )
-        
+
         log.info("Waiting for transcription result")
         result = await handler.get()
-        
+
         transcription = result.get("text", "")
         if not transcription:
             log.info("Transcription is empty")
-            
+
         return {"success": True, "transcription": transcription, "full_result": result}
-        
+
     except FileNotFoundError as e:
         log.info(f"File error: {str(e)}")
         return {"success": False, "error": str(e)}
     except Exception as e:
         log.info(f"Unexpected error: {str(e)}")
         return {"success": False, "error": f"An unexpected error occurred: {str(e)}"}
+
 
 async def generate_image(model_name: str, payload: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
     """
@@ -83,6 +86,7 @@ async def generate_image(model_name: str, payload: Dict[str, Any]) -> AsyncGener
     result = await handler.get()
     yield result
 
+
 async def generate_image_sync(model_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Generate an image synchronously using specified fal-ai model.
@@ -98,7 +102,7 @@ async def generate_image_sync(model_name: str, payload: Dict[str, Any]) -> Dict[
         model_name,
         arguments=payload
     )
-    
+
     return await handler.get()
 
 
@@ -120,7 +124,7 @@ async def upscale_image(image_path: str, upscale_factor: int = 2) -> Dict[str, A
     try:
         # Upload the image file
         url = await upload_file(image_path)
-        
+
         model_params = {
             "image_url": url,
             "prompt": "masterpiece, best quality, highres",
@@ -134,9 +138,9 @@ async def upscale_image(image_path: str, upscale_factor: int = 2) -> Dict[str, A
             "fal-ai/clarity-upscaler",
             arguments=model_params
         )
-        
+
         final_result = await result.get()
-        
+
         if not final_result or not isinstance(final_result, dict) or "image" not in final_result:
             log.error("Invalid response structure from fal.ai API")
             return {

@@ -8,6 +8,7 @@ from src.database.client import DatabaseClient
 
 log = get_logger(__name__)
 
+
 async def get_chat_setting(chat_id: int, setting_key: str, default: bool = False) -> bool:
     """Get a specific setting value for a chat.
     
@@ -23,10 +24,10 @@ async def get_chat_setting(chat_id: int, setting_key: str, default: bool = False
         # Initialize repository
         db_client = DatabaseClient.get_instance()
         peer_repo = PeerRepository(db_client.client)
-        
+
         # Get current settings
         config = await peer_repo.get_peer_config(chat_id)
-        
+
         # Map user-friendly names to config keys
         setting_map = {
             'nsfw': 'nsfw_enabled',
@@ -34,27 +35,28 @@ async def get_chat_setting(chat_id: int, setting_key: str, default: bool = False
             'summary': 'summary_enabled',
             'nhentai_blur': 'nhentai_blur'
         }
-        
+
         # Get the actual config key
         config_key = setting_map.get(setting_key, setting_key)
-        
+
         return config.get(config_key, default)
-        
+
     except Exception as e:
         log.error("Error getting chat setting",
-                 error=str(e),
-                 chat_id=chat_id,
-                 setting=setting_key)
+                  error=str(e),
+                  chat_id=chat_id,
+                  setting=setting_key)
         return default
+
 
 def format_settings(config: dict) -> str:
     """Format settings for display in Russian."""
     # Remove chat_id and _id from display
     display_config = {k: v for k, v in config.items() if k not in ['chat_id', '_id']}
-    
+
     # Format each setting
     settings_text = ["📋 Текущие настройки:"]
-    
+
     # Translation mapping with emojis
     translations = {
         'nsfw_enabled': ('🔞 NSFW', 'Фильтрация NSFW контента'),
@@ -62,15 +64,16 @@ def format_settings(config: dict) -> str:
         'summary_enabled': ('📝 Суммаризация', 'Создание кратких обзоров длинных текстов'),
         'nhentai_blur': ('🌫 NHentai blur', 'Размытие превью изображений')
     }
-    
+
     for key, value in display_config.items():
         # Get translated name and description
         setting_name, _ = translations.get(key, (key, ''))
         # Convert boolean to enabled/disabled in Russian with emojis
         status = "✅ включено" if value else "❌ выключено"
         settings_text.append(f"{setting_name}: {status}")
-    
+
     return "\n".join(settings_text)
+
 
 def get_help_text() -> str:
     """Get detailed help text about settings."""
@@ -95,22 +98,24 @@ def get_help_text() -> str:
         "   🔸 Пример: `/settings disable nhentai_blur`"
     )
 
+
 @Client.on_message(filters.command(["settings", "config"]), group=1)
 async def settings_handler(client: Client, message: Message):
     """Handle /settings command."""
     try:
         # Check if private chat
         if message.chat.type == ChatType.PRIVATE:
-            await message.reply_text("❌ Настройки недоступны в личных сообщениях. В личных чатах NSFW и транскрибация всегда включены.")
+            await message.reply_text(
+                "❌ Настройки недоступны в личных сообщениях. В личных чатах NSFW и транскрибация всегда включены.")
             return
 
         # Initialize repository
         db_client = DatabaseClient.get_instance()
         peer_repo = PeerRepository(db_client.client)
-        
+
         # Get current settings
         config = await peer_repo.get_peer_config(message.chat.id)
-        
+
         # If no additional arguments, display current settings and help
         if len(message.command) == 1:
             settings_text = format_settings(config)
@@ -147,7 +152,7 @@ async def settings_handler(client: Client, message: Message):
         # Update the setting
         setting_key = setting_map[setting]
         new_value = action == 'enable'
-        
+
         # Update config
         updated_config = await peer_repo.update_peer_config(
             message.chat.id,

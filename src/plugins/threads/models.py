@@ -5,6 +5,7 @@ from structlog import get_logger
 
 log = get_logger(__name__)
 
+
 @dataclass
 class ThreadResponse:
     """Base class for thread responses"""
@@ -30,10 +31,12 @@ class ThreadResponse:
             log.error(f"Missing required field: {e}")
             raise
 
+
 @dataclass
 class BugurtResponse(ThreadResponse):
     """2ch-style thread response"""
     comment_key: ClassVar[str] = '2ch_comments'
+
 
 @dataclass
 class GreentextResponse(ThreadResponse):

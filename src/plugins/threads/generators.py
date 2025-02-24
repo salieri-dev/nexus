@@ -15,19 +15,21 @@ log = get_logger(__name__)
 
 # Russian date formatting constants
 WEEKDAY_NAMES = {0: "Пнд", 1: "Втр", 2: "Срд", 3: "Чтв", 4: "Птн", 5: "Суб", 6: "Вск"}
-MONTH_NAMES = {1: "Янв", 2: "Фев", 3: "Мар", 4: "Апр", 5: "Май", 6: "Июн", 
+MONTH_NAMES = {1: "Янв", 2: "Фев", 3: "Мар", 4: "Апр", 5: "Май", 6: "Июн",
                7: "Июл", 8: "Авг", 9: "Сен", 10: "Окт", 11: "Ноя", 12: "Дек"}
+
 
 class BaseThreadGenerator(ABC):
     """Base class for thread image generators"""
+
     def __init__(self):
         self.template_dir = Path(f"src/plugins/threads/{self.get_template_name()}")
         self.template_path = self.template_dir / "template.html"
         self.images_dir = self.get_images_dir()
-        
+
         if not self.template_path.exists():
             raise FileNotFoundError(f"Template not found: {self.template_path}")
-            
+
         self.jinja_env = Environment(loader=FileSystemLoader(str(self.template_dir)))
         self.imgkit_config = imgkit.config()
 
@@ -66,33 +68,33 @@ class BaseThreadGenerator(ABC):
         if not self.images_dir.exists():
             log.warning(f"Images directory not found: {self.images_dir}")
             return ""
-            
+
         image_files = list(self.images_dir.glob("*.jpg")) + list(self.images_dir.glob("*.png"))
         if not image_files:
             log.warning("No images found")
             return ""
-            
+
         return str(random.choice(image_files))
 
     def format_comments(self, comments: List[str], thread_id: str) -> List[Dict]:
         """Format comments with proper structure"""
         formatted = []
         current_time = datetime.now()
-        
+
         for i, text in enumerate(comments):
             comment_id = str(int(thread_id) + i + 1)
             if not text.startswith(f">>{thread_id}"):
                 text = f">>{thread_id}\n{text}"
-                
+
             formatted_text = self.format_comment_text(text, thread_id)
-            
+
             formatted.append({
                 "id": comment_id,
                 "name": self.get_anon_name(),
                 "date": self.format_date(current_time + timedelta(minutes=random.randint(2, 5)), self.use_russian),
                 "text": formatted_text
             })
-            
+
         return formatted
 
     @abstractmethod
@@ -111,7 +113,7 @@ class BaseThreadGenerator(ABC):
         try:
             thread_id = str(int(datetime.now().timestamp()))
             image_path = self.get_random_image()
-            
+
             # Get image details
             img_size = "0Кб, 0x0" if self.use_russian else "0KB, 0x0"
             img_url = ""
@@ -126,32 +128,32 @@ class BaseThreadGenerator(ABC):
 
             # Prepare template data
             template_data = self.prepare_template_data(thread_id, story, comments, img_url, img_size)
-            
+
             # Render template
             template = self.jinja_env.get_template(self.template_path.name)
             html = template.render(**template_data)
-            
+
             # Create temp files
             temp_dir = Path.cwd() / ".temp"
             temp_dir.mkdir(exist_ok=True)
-            
+
             temp_html = temp_dir / f"temp_{thread_id}.html"
             temp_png = temp_dir / f"temp_{thread_id}.png"
-            
+
             # Write HTML
             temp_html.write_text(html, encoding='utf-8')
-            
+
             # Generate image
             options = self.get_imgkit_options()
             imgkit.from_file(str(temp_html), str(temp_png), options=options, config=self.imgkit_config)
-            
+
             # Read result
             image_bytes = temp_png.read_bytes()
-            
+
             # Cleanup
             temp_html.unlink(missing_ok=True)
             temp_png.unlink(missing_ok=True)
-            
+
             return image_bytes
 
         except Exception as e:
@@ -159,8 +161,8 @@ class BaseThreadGenerator(ABC):
             return None
 
     @abstractmethod
-    def prepare_template_data(self, thread_id: str, story: str, comments: List[str], 
-                            img_url: str, img_size: str) -> Dict:
+    def prepare_template_data(self, thread_id: str, story: str, comments: List[str],
+                              img_url: str, img_size: str) -> Dict:
         """Prepare data for template rendering"""
         pass
 
@@ -169,8 +171,10 @@ class BaseThreadGenerator(ABC):
         """Get options for imgkit"""
         pass
 
+
 class BugurtGenerator(BaseThreadGenerator):
     """Generator for 2ch-style threads"""
+
     def get_template_name(self) -> str:
         return "bugurt"
 
@@ -207,7 +211,7 @@ class BugurtGenerator(BaseThreadGenerator):
         return True
 
     def prepare_template_data(self, thread_id: str, story: str, comments: List[str],
-                            img_url: str, img_size: str) -> Dict:
+                              img_url: str, img_size: str) -> Dict:
         current_time = self.format_date(datetime.now(), self.use_russian)
         return {
             "post_id": thread_id,
@@ -229,8 +233,10 @@ class BugurtGenerator(BaseThreadGenerator):
             "user-style-sheet": str(self.template_dir / "default.css")
         }
 
+
 class GreentextGenerator(BaseThreadGenerator):
     """Generator for 4chan-style threads"""
+
     def get_template_name(self) -> str:
         return "greentext"
 
@@ -268,7 +274,7 @@ class GreentextGenerator(BaseThreadGenerator):
         return False
 
     def prepare_template_data(self, thread_id: str, story: str, comments: List[str],
-                            img_url: str, img_size: str) -> Dict:
+                              img_url: str, img_size: str) -> Dict:
         current_time = self.format_date(datetime.now(), self.use_russian)
         return {
             "thread_title": "Greentext",
