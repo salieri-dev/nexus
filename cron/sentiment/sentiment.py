@@ -36,7 +36,11 @@ Path(LOGS_DIR).mkdir(parents=True, exist_ok=True)
 BATCH_SIZE = int(os.getenv('BATCH_SIZE', 1000))
 SENTIMENT_MODEL = os.getenv('SENTIMENT_MODEL', 'seara/rubert-tiny2-russian-sentiment')
 SENSITIVE_MODEL = os.getenv('SENSITIVE_TOPICS_MODEL', 'Skoltech/russian-sensitive-topics')
-MONGODB_URI = f"mongodb://{os.getenv('MONGODB_USERNAME')}:{os.getenv('MONGODB_PASSWORD')}@{os.getenv('MONGODB_HOST')}:{os.getenv('MONGODB_PORT')}"
+from urllib.parse import quote_plus
+
+# Use mongodb service name when running in docker, otherwise use MONGO_BIND_IP
+mongodb_host = "mongodb" if os.getenv('DOCKER_ENV') == 'true' else os.getenv('MONGO_BIND_IP')
+MONGODB_URI = f"mongodb://{quote_plus(os.getenv('MONGO_USERNAME'))}:{quote_plus(os.getenv('MONGO_PASSWORD'))}@{mongodb_host}:{os.getenv('MONGO_PORT')}"
 
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 log_file = os.path.join(LOGS_DIR, f'sentiment_analysis_{current_time}.log')
@@ -84,8 +88,8 @@ class AnalysisModels:
         ).to(self.device)
         self.topics_model.eval()
         
-        # Load topic dictionary
-        topic_file = Path("id2topic.json")
+        # Load topic dictionary from the same directory as this script
+        topic_file = Path(__file__).parent / "id2topic.json"
         if not topic_file.exists():
             raise FileNotFoundError("id2topic.json not found")
         with topic_file.open() as f:

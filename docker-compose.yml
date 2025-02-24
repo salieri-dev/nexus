@@ -18,12 +18,12 @@ services:
       - PYTHONFAULTHANDLER=1
       - DOCKER_ENV=true
 
-  sentiment-analysis:
+  cron:
     build:
-      context: ./jobs/sentiment
+      context: ./cron/sentiment
       dockerfile: Dockerfile
     env_file:
-      - ./jobs/sentiment/.env
+      - .env
     volumes:
       - ./logs:/app/logs 
       - ./cache:/app/cache 
@@ -39,6 +39,10 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONFAULTHANDLER=1
+      - DOCKER_ENV=true
 
 
   mongodb:
