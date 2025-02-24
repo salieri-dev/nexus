@@ -6,6 +6,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./assets:/app/assets
+      - ./logs:/app/logs
     depends_on:
       - mongodb
     env_file:

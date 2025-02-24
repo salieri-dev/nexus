@@ -10,3 +10,5 @@ jinja2
 fal_client
 matplotlib
 numpy
+pytz
+apscheduler

@@ -175,3 +175,4 @@ src/plugins/instagram/config
 assets/
 scripts/
 cache/
+logs/

@@ -4,6 +4,8 @@ from src.utils.logging import setup_structlog
 from src.database.client import DatabaseClient
 from src.utils.credentials import Credentials
 from src.plugins.tanks import init_tanks
+from src.database.message_repository import MessageRepository, PeerRepository
+from src.plugins.summary.job import init_summary
 
 # Setup logging once at the module level
 logger = setup_structlog()
@@ -20,6 +22,11 @@ async def main():
 
         # Initialize tanks data
         await init_tanks()
+
+        # Initialize repositories and summary job
+        message_repository = MessageRepository(db.client)
+        peer_repository = PeerRepository(db.client)
+        await init_summary(message_repository, peer_repository)
 
         app = Client(
             credentials.bot.name,
