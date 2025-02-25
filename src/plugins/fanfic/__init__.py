@@ -1,0 +1,1 @@
+# Fanfic plugin package
