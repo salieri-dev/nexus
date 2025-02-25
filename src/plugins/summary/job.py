@@ -11,6 +11,7 @@ from structlog import get_logger
 
 from src.database.message_repository import MessageRepository, PeerRepository
 from src.services.openrouter import OpenRouter
+from .schemas.models import SummarizationResponse
 
 _summary_job = None
 log = get_logger(__name__)
@@ -82,12 +83,12 @@ class SummaryJob:
 
         self.scheduler.start()
         log.info("Summary job scheduler started")
-
+        
     async def _generate_summary(self, chat_log: str) -> Optional[Dict]:
         """Generate a summary of the chat log using OpenRouter API"""
         try:
-            response = await self.openrouter.client.chat.completions.create(
-                model="openai/gpt-4o-mini",
+            # Use beta.chat.completions.parse with the Pydantic model
+            completion = await self.openrouter.client.beta.chat.completions.parse(
                 messages=[
                     {
                         "role": "system",
@@ -95,33 +96,27 @@ class SummaryJob:
                     },
                     {"role": "user", "content": chat_log},
                 ],
+                model="openai/gpt-4o-mini",
                 temperature=1,
                 max_tokens=1000,
                 top_p=1,
                 frequency_penalty=0,
                 presence_penalty=0,
-                response_format={"type": "json_schema", "json_schema": self.schema}
+                response_format=SummarizationResponse
             )
 
-            log.info("Received summary response", response=response)
-
-            if not response.choices:
-                log.error("No response choices received from OpenRouter")
-                return None
-
-            try:
-                content = response.choices[0].message.content
-                if not content:
-                    log.error("Empty content received from OpenRouter")
-                    return None
-
-                summary = json.loads(content)
-                log.info("Summary generated successfully",
-                         themes_count=len(summary.get("themes", [])))
-                return summary
-            except json.JSONDecodeError as e:
-                log.error("Failed to parse summary JSON", error=str(e))
-                return None
+            log.info("Received summary response", response=completion)
+            
+            # Extract the response content
+            content = completion.choices[0].message.content
+            
+            # Parse the response using Pydantic model
+            summary = SummarizationResponse.model_validate_json(content)
+            log.info("Summary generated successfully", themes_count=len(summary.themes))
+            
+            # Convert to dict for compatibility with existing code
+            summary_dict = summary.model_dump()
+            return summary_dict
 
         except Exception as e:
             log.error("Error generating summary", error=str(e))
