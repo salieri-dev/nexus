@@ -23,11 +23,7 @@ async def main():
         # Initialize tanks data
         await init_tanks()
 
-        # Initialize repositories and summary job
-        message_repository = MessageRepository(db.client)
-        peer_repository = PeerRepository(db.client)
-        await init_summary(message_repository, peer_repository)
-
+        # Initialize client
         app = Client(
             credentials.bot.name,
             api_id=credentials.bot.app_id,
@@ -38,6 +34,12 @@ async def main():
 
         logger.info("Starting Nexus")
         await app.start()
+        
+        # Initialize repositories and summary job after app is started
+        message_repository = MessageRepository(db.client)
+        peer_repository = PeerRepository(db.client)
+        await init_summary(message_repository, peer_repository, app)
+        
         await idle()
     except Exception as e:
         logger.error("Error in main loop", error=str(e))
