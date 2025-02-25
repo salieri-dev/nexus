@@ -1,9 +1,9 @@
 """Repository for Death by AI game data"""
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from motor.motor_asyncio import AsyncIOMotorClient
-from bson import ObjectId
 
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorClient
 from structlog import get_logger
 
 log = get_logger(__name__)
@@ -45,7 +45,7 @@ class DeathByAIRepository:
         return None
 
     async def create_game(self, chat_id: int, message_id: int, scenario: str, initiator_id: int, end_time: datetime) -> \
-    Dict[str, Any]:
+            Dict[str, Any]:
         """
         Create a new game instance.
         

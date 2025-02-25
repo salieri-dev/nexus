@@ -1,4 +1,3 @@
-import os
 import random
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
@@ -8,7 +7,6 @@ from typing import Dict, List, Optional
 import imgkit
 from PIL import Image
 from jinja2 import Environment, FileSystemLoader
-
 from structlog import get_logger
 
 log = get_logger(__name__)

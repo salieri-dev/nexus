@@ -1,6 +1,8 @@
-from typing import Any, Dict, List, Optional
-from motor.motor_asyncio import AsyncIOMotorClient
+from typing import Optional
+
 import structlog
+from motor.motor_asyncio import AsyncIOMotorClient
+
 from src.utils.credentials import Credentials
 
 # Get the shared logger instance

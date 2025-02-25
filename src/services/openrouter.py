@@ -1,10 +1,7 @@
-from typing import Any, List
-
 import httpx
 from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletion
-
 from structlog import get_logger
+
 from src.utils.credentials import Credentials
 
 log = get_logger(name=__name__)

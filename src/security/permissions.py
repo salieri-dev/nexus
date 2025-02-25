@@ -1,5 +1,6 @@
 """Permission decorators for command handlers"""
 from functools import wraps
+
 from pyrogram.enums import ChatType
 from pyrogram.types import Message
 

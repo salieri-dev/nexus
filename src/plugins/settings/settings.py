@@ -1,10 +1,10 @@
 from pyrogram import Client, filters
-from pyrogram.types import Message
 from pyrogram.enums import ChatType
+from pyrogram.types import Message
 from structlog import get_logger
 
-from src.database.message_repository import PeerRepository
 from src.database.client import DatabaseClient
+from src.database.message_repository import PeerRepository
 
 log = get_logger(__name__)
 

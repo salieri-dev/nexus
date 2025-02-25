@@ -1,19 +1,18 @@
-import os
 import json
-from typing import Callable, Optional
-from io import BytesIO
+import os
 from datetime import datetime
+from io import BytesIO
+from typing import Callable, Optional
 
 from pyrogram import Client, filters
-from pyrogram.types import Message
 from pyrogram.enums import ParseMode
-
-from src.services.openrouter import OpenRouter
-from src.database.client import DatabaseClient
+from pyrogram.types import Message
 from structlog import get_logger
 
-from .service import generate_bugurt_image, generate_greentext_image
+from src.database.client import DatabaseClient
+from src.services.openrouter import OpenRouter
 from .repository import ThreadsRepository
+from .service import generate_bugurt_image, generate_greentext_image
 
 log = get_logger(__name__)
 

@@ -2,8 +2,8 @@ from typing import Optional
 
 from structlog import get_logger
 
-from .models import BugurtResponse, GreentextResponse
 from .generators import BugurtGenerator, GreentextGenerator
+from .models import BugurtResponse, GreentextResponse
 
 log = get_logger(__name__)
 

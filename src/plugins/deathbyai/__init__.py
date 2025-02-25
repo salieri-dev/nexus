@@ -1,5 +1,6 @@
 """Death by AI game plugin"""
 import structlog
+
 from src.database.client import DatabaseClient
 from src.plugins.deathbyai.repository import DeathByAIRepository
 from src.plugins.deathbyai.service import DeathByAIService

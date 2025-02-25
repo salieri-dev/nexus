@@ -1,9 +1,11 @@
-from datetime import datetime, timedelta
-import time
 import asyncio
-from typing import Dict, Optional, Tuple
-from motor.motor_asyncio import AsyncIOMotorCollection
+import time
+from datetime import datetime
+from typing import Dict, Tuple
+
 import structlog
+from motor.motor_asyncio import AsyncIOMotorCollection
+
 from src.database.client import DatabaseClient
 
 logger = structlog.get_logger()

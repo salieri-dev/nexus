@@ -1,7 +1,7 @@
 import os
-import fal_client
 from typing import AsyncGenerator, Dict, Any
 
+import fal_client
 from structlog import get_logger
 
 log = get_logger(__name__)

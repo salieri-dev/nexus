@@ -1,17 +1,16 @@
 """Death by AI game command handlers"""
 import asyncio
-from datetime import datetime
+
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from pyrogram.enums import ChatMemberStatus, ParseMode
+from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import FloodWait
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from structlog import get_logger
 
 from src.database.client import DatabaseClient
-from src.plugins.help import command_handler
-from src.security.permissions import requires_setting
 from src.plugins.deathbyai.repository import DeathByAIRepository
 from src.plugins.deathbyai.service import DeathByAIService
+from src.plugins.help import command_handler
 
 # Get the shared logger instance
 log = get_logger(__name__)

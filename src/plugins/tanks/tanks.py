@@ -4,8 +4,8 @@ from typing import Dict
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from structlog import get_logger
-from src.database.client import DatabaseClient
 
+from src.database.client import DatabaseClient
 from src.plugins.tanks.repository import TanksRepository
 
 log = get_logger(__name__)

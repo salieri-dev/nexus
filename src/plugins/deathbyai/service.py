@@ -3,10 +3,11 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple
 
-from structlog import get_logger
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from src.services.openrouter import OpenRouter
+from structlog import get_logger
+
 from src.plugins.deathbyai.repository import DeathByAIRepository
+from src.services.openrouter import OpenRouter
 
 log = get_logger(__name__)
 
@@ -37,7 +38,7 @@ class DeathByAIService:
             return json.load(f)["schema"]
 
     async def start_game(self, repository: DeathByAIRepository, chat_id: int, message_id: int, initiator_id: int) -> \
-    Optional[Dict[str, Any]]:
+            Optional[Dict[str, Any]]:
         """Start a new game if none is active"""
         # Check for active game
         active_game = await repository.get_active_game(chat_id)

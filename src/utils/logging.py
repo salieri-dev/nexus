@@ -1,9 +1,10 @@
-import logging
 import sys
 from typing import List
 
 import structlog
 from structlog.types import Processor, EventDict
+
+import logging
 
 
 def drop_color_message_key(_, __, event_dict: EventDict) -> EventDict:

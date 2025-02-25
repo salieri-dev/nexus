@@ -1,6 +1,7 @@
 """Dynamic help command handler"""
-from typing import Dict, List
 from functools import wraps
+from typing import Dict, List
+
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from structlog import get_logger

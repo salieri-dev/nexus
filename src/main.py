@@ -1,11 +1,13 @@
 import asyncio
+
 from pyrogram import Client, idle
-from src.utils.logging import setup_structlog
+
 from src.database.client import DatabaseClient
-from src.utils.credentials import Credentials
-from src.plugins.tanks import init_tanks
 from src.database.message_repository import MessageRepository, PeerRepository
 from src.plugins.summary.job import init_summary
+from src.plugins.tanks import init_tanks
+from src.utils.credentials import Credentials
+from src.utils.logging import setup_structlog
 
 # Setup logging once at the module level
 logger = setup_structlog()
@@ -34,12 +36,12 @@ async def main():
 
         logger.info("Starting Nexus")
         await app.start()
-        
+
         # Initialize repositories and summary job after app is started
         message_repository = MessageRepository(db.client)
         peer_repository = PeerRepository(db.client)
         await init_summary(message_repository, peer_repository, app)
-        
+
         await idle()
     except Exception as e:
         logger.error("Error in main loop", error=str(e))

@@ -2,11 +2,11 @@ import re
 
 from pyrogram import Client, filters
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
-from src.plugins.instagram.service import InstagramMediaFetcher
-from src.utils.credentials import Credentials
-from src.security.ratelimiter.rate_limiter import rate_limit
-
 from structlog import get_logger
+
+from src.plugins.instagram.service import InstagramMediaFetcher
+from src.security.ratelimiter.rate_limiter import rate_limit
+from src.utils.credentials import Credentials
 
 log = get_logger(__name__)
 

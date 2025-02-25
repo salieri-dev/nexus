@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
-from motor.motor_asyncio import AsyncIOMotorClient
 
+from motor.motor_asyncio import AsyncIOMotorClient
 from structlog import get_logger
 
 log = get_logger(__name__)

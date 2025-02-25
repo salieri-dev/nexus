@@ -2,18 +2,16 @@ import http.cookiejar
 import json
 import os
 import re
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+from datetime import datetime
+from datetime import timezone
+from typing import Any, Dict
+from typing import List, Optional
 
 import httpx
 from structlog import get_logger
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Optional
-
 from src.utils.credentials import Credentials
-from src.security.ratelimiter.rate_limiter import rate_limit
 
 
 @dataclass(frozen=True)

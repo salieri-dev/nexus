@@ -3696,8 +3696,8 @@ px solid #ccc
 
 ;
 background-color:
-
 var
+
 (
 --theme_default_btnbg
 
@@ -3707,8 +3707,8 @@ border:
 
 1
 px solid
-
 var
+
 (
 --theme_default_btnborder
 
@@ -3724,8 +3724,8 @@ color: #f60
 
 ;
 color:
-
 var
+
 (
 --theme_default_link
 

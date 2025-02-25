@@ -1,6 +1,7 @@
+import json
 from dataclasses import dataclass
 from typing import List, ClassVar
-import json
+
 from structlog import get_logger
 
 log = get_logger(__name__)

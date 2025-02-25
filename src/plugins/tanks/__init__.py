@@ -1,4 +1,5 @@
 import structlog
+
 from src.database.client import DatabaseClient
 from src.plugins.tanks.repository import TanksRepository
 from src.plugins.tanks.service import TankService
