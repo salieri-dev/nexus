@@ -4,8 +4,12 @@ from pyrogram import Client, idle
 
 from src.database.client import DatabaseClient
 from src.database.message_repository import MessageRepository, PeerRepository
+from src.database.bot_config_repository import BotConfigRepository
 from src.plugins.summary.job import init_summary
+from src.plugins.summary import initialize as init_summary_config
 from src.plugins.tanks import init_tanks
+from src.plugins.threads import initialize as init_threads
+from src.plugins.fanfic import initialize as init_fanfic
 from src.utils.credentials import Credentials
 from src.utils.logging import setup_structlog
 
@@ -21,6 +25,16 @@ async def main():
     try:
         # Initialize database connection
         await db.connect()
+
+        # Initialize bot config repository
+        config_repo = BotConfigRepository(db)
+        await config_repo.initialize()
+
+        # Initialize plugin configurations
+        # Each plugin registers its own configuration
+        await init_threads()
+        await init_fanfic()
+        await init_summary_config()
 
         # Initialize tanks data
         await init_tanks()

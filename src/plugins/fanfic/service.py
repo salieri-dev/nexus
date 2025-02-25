@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 from structlog import get_logger
 
 from src.services.openrouter import OpenRouter
+from src.database.client import DatabaseClient
+from src.database.bot_config_repository import BotConfigRepository
 
 log = get_logger(__name__)
 
@@ -12,20 +14,6 @@ class FanficResponse(BaseModel):
     """Pydantic model for fanfic response"""
     title: str = Field(description="The title of the fanfiction")
     content: str = Field(description="The full text of the fanfiction")
-
-# System prompt for fanfic generation
-FANFIC_SYSTEM_PROMPT = """You are a creative writer specializing in fanfiction. 
-Your task is to create an engaging, well-structured fanfiction based on the topic provided by the user.
-
-Guidelines:
-- Create a fanfiction of approximately 500-1000 words
-- Include a title for the fanfiction
-- Write in a narrative style with proper paragraphs
-- Include dialogue where appropriate
-- Be creative and entertaining
-- Keep the content appropriate for general audiences
-- Write in Russian language
-"""
 
 
 async def generate_fanfic(topic: str) -> Optional[FanficResponse]:
@@ -37,9 +25,17 @@ async def generate_fanfic(topic: str) -> Optional[FanficResponse]:
         
     Returns:
         Optional[FanficResponse]: Pydantic model containing the title and content of the generated fanfiction,
-                                 or None if generation failed
+                                  or None if generation failed
     """
     try:
+        # Get database client and config repository
+        db_client = DatabaseClient.get_instance()
+        config_repo = BotConfigRepository(db_client)
+        
+        # Get system prompt and model name from config
+        system_prompt = await config_repo.get_plugin_config_value("fanfic", "FANFIC_SYSTEM_PROMPT", "")
+        model_name = await config_repo.get_plugin_config_value("fanfic", "FANFIC_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
+        
         open_router = OpenRouter().client
         
         # Create the completion request using Pydantic model
@@ -47,15 +43,15 @@ async def generate_fanfic(topic: str) -> Optional[FanficResponse]:
             messages=[
                 {
                     "role": "system",
-                    "content": FANFIC_SYSTEM_PROMPT
+                    "content": system_prompt
                 },
                 {
                     "role": "user",
                     "content": f"Создай фанфик на тему '{topic}'."
                 }
             ],
-            model="x-ai/grok-2-1212",
-            temperature=0.8,
+            model=model_name,
+            temperature=1,
             max_tokens=4000,
             response_format=FanficResponse,
             seed=42

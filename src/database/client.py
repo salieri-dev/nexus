@@ -38,6 +38,11 @@ class DatabaseClient:
                 from src.database.ratelimit_repository import RateLimitRepository
                 rate_limit_repo = RateLimitRepository(self)
                 await rate_limit_repo.initialize()
+                
+                # Initialize bot configuration
+                from src.database.bot_config_repository import BotConfigRepository
+                bot_config_repo = BotConfigRepository(db_client=self)
+                await bot_config_repo.initialize()
 
                 self._initialized = True
                 logger.info("Successfully connected to MongoDB",

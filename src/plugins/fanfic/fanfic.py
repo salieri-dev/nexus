@@ -5,6 +5,7 @@ from pyrogram.types import Message
 
 from structlog import get_logger
 from src.database.client import DatabaseClient
+from src.database.bot_config_repository import BotConfigRepository
 from .repository import FanficRepository
 from .service import generate_fanfic
 
@@ -15,9 +16,10 @@ log = get_logger(__name__)
 async def fanfic_handler(client: Client, message: Message):
     """Handler for /fanfic command"""
     try:
-        # Get database instance and initialize repository
+        # Get database instance and initialize repositories
         db = DatabaseClient.get_instance()
         repository = FanficRepository(db.client)
+        config_repo = BotConfigRepository(db_client=db)
         
         # Validate input
         if len(message.command) < 2:
@@ -48,6 +50,9 @@ async def fanfic_handler(client: Client, message: Message):
             # Format the response
             formatted_response = f"<b>{title}</b>\n\n{content}"
             
+            # Get model name from config
+            model_name = await config_repo.get_plugin_config_value("fanfic", "FANFIC_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
+            
             # Store fanfic data in database
             fanfic_record = {
                 "user_id": message.from_user.id,
@@ -56,7 +61,7 @@ async def fanfic_handler(client: Client, message: Message):
                 "title": title,
                 "content": content,
                 "timestamp": datetime.utcnow(),
-                "model": "x-ai/grok-2-1212",
+                "model": model_name,
                 "temperature": 0.8
             }
             await repository.save_fanfic(fanfic_record)

@@ -9,6 +9,7 @@ from pyrogram.types import Message
 from structlog import get_logger
 
 from src.database.client import DatabaseClient
+from src.database.bot_config_repository import BotConfigRepository
 from src.services.openrouter import OpenRouter
 from .models import BugurtResponse, GreentextResponse, ThreadResponse
 from .repository import ThreadsRepository
@@ -42,9 +43,10 @@ async def handle_thread_generation(
 ) -> None:
     """Generic handler for thread generation commands"""
     try:
-        # Get database instance and initialize repository
+        # Get database instance and initialize repositories
         db = DatabaseClient.get_instance()
         repository = ThreadsRepository(db.client)
+        config_repository = BotConfigRepository(db_client=db)
 
         # Validate input
         if len(message.command) < 2:
@@ -63,15 +65,29 @@ async def handle_thread_generation(
             )
             return
 
-        # Load system prompt
-        with open(os.path.join(CURRENT_DIR, system_prompt_path), "r") as file:
-            system_prompt = file.read()
+        # Load system prompt from config
+        if command == "bugurt":
+            system_prompt = await config_repository.get_plugin_config_value("threads", "BUGURT_SYSTEM_PROMPT", "")
+        elif command == "greentext":
+            system_prompt = await config_repository.get_plugin_config_value("threads", "GREENTEXT_SYSTEM_PROMPT", "")
+        else:
+            # Fallback to file if command is not recognized
+            with open(os.path.join(CURRENT_DIR, system_prompt_path), "r") as file:
+                system_prompt = file.read()
 
         # Generate AI response
         reply_msg = await message.reply("⚙️ Генерирую пост..." if prompt_language == "ru" else "⚙️ Generating post...",
                                         quote=True)
         try:
             openrouter = OpenRouter()
+            
+            # Get model name from config
+            model_name = "anthropic/claude-3.5-sonnet:beta"  # Default
+            if command == "bugurt":
+                model_name = await config_repository.get_plugin_config_value("threads", "BUGURT_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
+            elif command == "greentext":
+                model_name = await config_repository.get_plugin_config_value("threads", "GREENTEXT_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
+            
             completion = await openrouter.client.beta.chat.completions.parse(
                 messages=[
                     {
@@ -86,14 +102,14 @@ async def handle_thread_generation(
                                    ) + ". Response must be in JSON format as described in the instructions."
                     }
                 ],
-                model="anthropic/claude-3.5-sonnet:beta",
+                model=model_name,
                 temperature=1,
                 max_tokens=5000,
                 response_format=response_model
             )
 
             thread_response = completion.choices[0].message.parsed
-            log.info(f"AI Response: {thread_response}")
+            log.info(f"AI Response: {completion}")
 
             # Generate image
             image_bytes = image_generator(thread_response)
@@ -110,7 +126,7 @@ async def handle_thread_generation(
                 "story": thread_response.story,
                 "comments": thread_response.comments,
                 "timestamp": datetime.utcnow(),
-                "model": "anthropic/claude-3.5-sonnet:beta",
+                "model": model_name,
                 "temperature": 1,
                 "language": "ru" if command == "bugurt" else "en"
             }

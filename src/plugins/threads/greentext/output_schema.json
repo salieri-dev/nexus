@@ -8,7 +8,7 @@
         "type": "string",
         "description": "The greentext story that is funny or sad in the style of typical 4chan user on /b/ board"
       },
-      "4ch_comments": {
+      "comments": {
         "type": "array",
         "description": "Comments in 4ch style on /b/ board",
         "items": {
@@ -20,7 +20,7 @@
     },
     "required": [
       "story",
-      "4ch_comments"
+      "comments"
     ],
     "additionalProperties": false
   }

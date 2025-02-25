@@ -10,6 +10,8 @@ from pyrogram.enums import ParseMode
 from structlog import get_logger
 
 from src.database.message_repository import MessageRepository, PeerRepository
+from src.database.bot_config_repository import BotConfigRepository
+from src.database.client import DatabaseClient
 from src.services.openrouter import OpenRouter
 from .schemas.models import SummarizationResponse
 
@@ -18,7 +20,7 @@ log = get_logger(__name__)
 
 # Constants
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
-MIN_MESSAGES_THRESHOLD = 60
+# MIN_MESSAGES_THRESHOLD is now loaded from config
 DEBUG = False  # Feature toggle for debug mode
 DEBUG_CHAT_ID = -1001716442415  # Debug chat ID
 MESSAGE_TYPES = {
@@ -40,6 +42,8 @@ async def init_summary(message_repository: MessageRepository, peer_repository: P
     global _summary_job
     if _summary_job is None:
         _summary_job = SummaryJob(message_repository, peer_repository, client)
+        # Initialize configuration
+        await _summary_job.initialize_config()
     elif client and not _summary_job.client:
         _summary_job.client = client
     return _summary_job
@@ -52,7 +56,16 @@ class SummaryJob:
         self.scheduler = AsyncIOScheduler()
         self.openrouter = OpenRouter()
         self.client = client
-
+        
+        # Get database client for config repository
+        db_client = DatabaseClient.get_instance()
+        self.config_repo = BotConfigRepository(db_client)
+        
+        # These will be loaded from config in async init
+        self.system_prompt = ""
+        self.model_name = "openai/gpt-4o-mini"  # Default
+        self.min_messages_threshold = 60  # Default
+        
         # Set logs directory based on environment
         self.logs_dir = "/app/logs/chat_summaries" if os.getenv("DOCKER_ENV") else "logs/chat_summaries"
         log.info("Initializing summary job", logs_dir=self.logs_dir)
@@ -60,12 +73,12 @@ class SummaryJob:
         # Create logs directory if it doesn't exist
         os.makedirs(self.logs_dir, exist_ok=True)
 
-        # Load schema and prompt
+        # Load schema
         with open("src/plugins/summary/schemas/summarization_schema.json") as f:
             self.schema = json.load(f)
-        with open("src/plugins/summary/schemas/prompts.txt") as f:
-            self.system_prompt = f.read().strip()
-
+            
+        # Load configurations asynchronously in initialize method
+        
         # Get cron schedule from env or use default (10:00 MSK daily)
         cron_schedule = os.getenv('SUMMARIZATION_CRON', '0 10 * * *')
         log.info("Configuring schedule", cron_schedule=cron_schedule)
@@ -84,6 +97,28 @@ class SummaryJob:
         self.scheduler.start()
         log.info("Summary job scheduler started")
         
+    async def initialize_config(self):
+        """Load configuration from bot_config_repository"""
+        try:
+            # Get summary plugin configuration
+            config = await self.config_repo.get_plugin_config("summary")
+            
+            # Load system prompt
+            self.system_prompt = config.get("SUMMARY_SYSTEM_PROMPT", "")
+            
+            # Load model name
+            self.model_name = config.get("SUMMARY_MODEL_NAME")
+            
+            # Load min messages threshold
+            self.min_messages_threshold = config.get("SUMMARY_MIN_MESSAGES_THRESHOLD", 60)
+            
+            log.info("Summary plugin configuration loaded",
+                     model=self.model_name,
+                     threshold=self.min_messages_threshold)
+                     
+        except Exception as e:
+            log.error("Error loading summary configuration", error=str(e))
+        
     async def _generate_summary(self, chat_log: str) -> Optional[Dict]:
         """Generate a summary of the chat log using OpenRouter API"""
         try:
@@ -96,7 +131,7 @@ class SummaryJob:
                     },
                     {"role": "user", "content": chat_log},
                 ],
-                model="openai/gpt-4o-mini",
+                model=self.model_name,
                 temperature=1,
                 max_tokens=1000,
                 top_p=1,
@@ -226,7 +261,7 @@ class SummaryJob:
 
             messages = await self.get_messages_for_date(chat_id, date)
 
-            if len(messages) < MIN_MESSAGES_THRESHOLD:
+            if len(messages) < self.min_messages_threshold:
                 if is_forced:
                     raise InsufficientDataError(
                         f"Insufficient messages: {len(messages)} messages"
@@ -235,7 +270,7 @@ class SummaryJob:
                           chat_id=chat_id,
                           chat_title=chat_title,
                           message_count=len(messages),
-                          threshold=MIN_MESSAGES_THRESHOLD)
+                          threshold=self.min_messages_threshold)
                 return
 
             log.info("Generating summary",
