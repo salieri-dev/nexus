@@ -19,7 +19,7 @@ log = get_logger(__name__)
 # Constants
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 MIN_MESSAGES_THRESHOLD = 60
-DEBUG = False  # Feature toggle for debug mode
+DEBUG = True  # Feature toggle for debug mode
 DEBUG_CHAT_ID = -1001716442415  # Debug chat ID
 MESSAGE_TYPES = {
     "text": lambda m: m.get("text", ""),
@@ -107,21 +107,17 @@ class SummaryJob:
 
             log.info("Received summary response", response=completion)
             
-            # Extract the response content
-            content = completion.choices[0].message.content
+            # The response is already parsed into SummarizationResponse model
+            summary = completion.choices[0].message.parsed
             
-            # Parse the response using Pydantic model
-            summary = SummarizationResponse.model_validate_json(content)
             log.info("Summary generated successfully", themes_count=len(summary.themes))
             
-            # Convert to dict for compatibility with existing code
-            summary_dict = summary.model_dump()
-            return summary_dict
+            return summary
 
         except Exception as e:
             log.error("Error generating summary", error=str(e))
             return None
-
+        
     def _format_message(self, message: Dict) -> Optional[str]:
         """Format a message according to the specified format."""
         try:
@@ -281,10 +277,10 @@ class SummaryJob:
 
             summary = await self._generate_summary(chat_log)
 
-            if not summary or not summary.get("themes"):
+            if not summary or not summary.themes:
                 log.error("Invalid summarization result",
-                          chat_id=chat_id,
-                          chat_title=chat_title)
+                        chat_id=chat_id,
+                        chat_title=chat_title)
                 return
 
             # Write to file
@@ -303,34 +299,35 @@ class SummaryJob:
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(chat_log)
 
-            # Write summary if available
+            # Write summary if available - use model's json() method
             with open(summary_filename, 'w', encoding='utf-8') as f:
-                json.dump(summary, f, ensure_ascii=False, indent=2)
+                json_str = summary.model_dump_json(indent=2)
+                f.write(json_str)
 
             log.info("Summary files written successfully",
-                     chat_id=chat_id,
-                     chat_title=chat_title,
-                     log_filename=filename,
-                     summary_filename=summary_filename)
+                    chat_id=chat_id,
+                    chat_title=chat_title,
+                    log_filename=filename,
+                    summary_filename=summary_filename)
 
             # Format and return summary text
             message_text = "📊 Итоги обсуждений за "
             message_text += "сегодня" if date.date() == datetime.now(MOSCOW_TZ).date() else "вчера"
             message_text += ":\n\n"
 
-            for theme in summary["themes"]:
-                message_text += f"{theme['emoji']} **{theme['name']}** "
+            for theme in summary.themes:
+                message_text += f"{theme.emoji} **{theme.name}** "
 
-                if message_ids := theme.get("messages_id", []):
+                if theme.messages_id:
                     links = [
                         f"[{i + 1}](t.me/c/{str(chat_id)[4:]}/{msg_id})"
-                        for i, msg_id in enumerate(message_ids)
+                        for i, msg_id in enumerate(theme.messages_id)
                     ]
                     message_text += f"({', '.join(links)})\n"
                 else:
                     message_text += "\n"
 
-                for point in theme["key_takeaways"]:
+                for point in theme.key_takeaways:
                     message_text += f"• {point}\n"
                 message_text += "\n"
 

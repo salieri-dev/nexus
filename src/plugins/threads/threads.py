@@ -1,8 +1,7 @@
-import json
 import os
 from datetime import datetime
 from io import BytesIO
-from typing import Callable, Optional
+from typing import Callable, Optional, Type
 
 from pyrogram import Client, filters
 from pyrogram.enums import ParseMode
@@ -11,19 +10,13 @@ from structlog import get_logger
 
 from src.database.client import DatabaseClient
 from src.services.openrouter import OpenRouter
+from .models import BugurtResponse, GreentextResponse, ThreadResponse
 from .repository import ThreadsRepository
 from .service import generate_bugurt_image, generate_greentext_image
 
 log = get_logger(__name__)
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
-def load_schema(filename: str) -> dict:
-    """Load JSON schema from file"""
-    schema_path = os.path.join(CURRENT_DIR, filename)
-    with open(schema_path, "r") as f:
-        return json.load(f)["schema"]
 
 
 def format_story_text(text: str, command: str) -> str:
@@ -42,8 +35,8 @@ async def handle_thread_generation(
         message: Message,
         command: str,
         system_prompt_path: str,
-        schema_path: str,
-        image_generator: Callable[[str], Optional[bytes]],
+        response_model: Type[ThreadResponse],
+        image_generator: Callable[[ThreadResponse], Optional[bytes]],
         error_message: str,
         prompt_language: str = "ru"
 ) -> None:
@@ -70,17 +63,16 @@ async def handle_thread_generation(
             )
             return
 
-        # Load system prompt and schema
+        # Load system prompt
         with open(os.path.join(CURRENT_DIR, system_prompt_path), "r") as file:
             system_prompt = file.read()
-        schema = load_schema(schema_path)
 
         # Generate AI response
         reply_msg = await message.reply("⚙️ Генерирую пост..." if prompt_language == "ru" else "⚙️ Generating post...",
                                         quote=True)
         try:
-            open_router = OpenRouter().client
-            completion = await open_router.chat.completions.create(
+            openrouter = OpenRouter()
+            completion = await openrouter.client.beta.chat.completions.parse(
                 messages=[
                     {
                         "role": "system",
@@ -97,22 +89,17 @@ async def handle_thread_generation(
                 model="anthropic/claude-3.5-sonnet:beta",
                 temperature=1,
                 max_tokens=5000,
-                response_format={"type": "json_schema", "schema": schema}
+                response_format=response_model
             )
 
-            completion_response = completion.choices[0].message.content
-            log.info(f"AI Response: {completion_response}")
+            thread_response = completion.choices[0].message.parsed
+            log.info(f"AI Response: {thread_response}")
 
             # Generate image
-            image_bytes = image_generator(completion_response)
+            image_bytes = image_generator(thread_response)
             if not image_bytes:
                 await message.reply(error_message, quote=True)
                 return
-
-            # Parse JSON for caption and storage
-            response_json = json.loads(completion_response)
-            story_text = response_json.get('story', '')
-            comments = response_json.get('2ch_comments' if command == 'bugurt' else '4ch_comments', [])
 
             # Store thread data
             thread_data = {
@@ -120,8 +107,8 @@ async def handle_thread_generation(
                 "chat_id": message.chat.id,
                 "command": command,
                 "theme": input_prompt,
-                "story": story_text,
-                "comments": comments,
+                "story": thread_response.story,
+                "comments": thread_response.comments,
                 "timestamp": datetime.utcnow(),
                 "model": "anthropic/claude-3.5-sonnet:beta",
                 "temperature": 1,
@@ -130,7 +117,7 @@ async def handle_thread_generation(
             await repository.save_thread(thread_data)
 
             # Format story text for display
-            formatted_story = format_story_text(story_text, command)
+            formatted_story = format_story_text(thread_response.story, command)
 
             # Send result
             await reply_msg.delete()
@@ -169,7 +156,7 @@ async def create_bugurt(client: Client, message: Message):
         message=message,
         command="bugurt",
         system_prompt_path="bugurt/bugurt_system_prompt.txt",
-        schema_path="bugurt/output_schema.json",
+        response_model=BugurtResponse,
         image_generator=generate_bugurt_image,
         error_message="Не удалось сгенерировать бугурт",
         prompt_language="ru"
@@ -183,7 +170,7 @@ async def create_greentext(client: Client, message: Message):
         message=message,
         command="greentext",
         system_prompt_path="greentext/greentext_system_prompt.txt",
-        schema_path="greentext/output_schema.json",
+        response_model=GreentextResponse,
         image_generator=generate_greentext_image,
         error_message="Failed to generate greentext",
         prompt_language="en"

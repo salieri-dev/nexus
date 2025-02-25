@@ -62,11 +62,8 @@ async def generate_fanfic(topic: str) -> Optional[FanficResponse]:
         )
         
         log.info(completion)
-        # Extract the response content
-        completion_response = completion.choices[0].message.content
-        
-        # Parse the response using Pydantic model
-        fanfic_response = FanficResponse.model_validate_json(completion_response)
+        # The response is already parsed into FanficResponse model
+        fanfic_response = completion.choices[0].message.parsed
         return fanfic_response
         
     except Exception as e:
