@@ -19,7 +19,7 @@ log = get_logger(__name__)
 # Constants
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 MIN_MESSAGES_THRESHOLD = 60
-DEBUG = True  # Feature toggle for debug mode
+DEBUG = False  # Feature toggle for debug mode
 DEBUG_CHAT_ID = -1001716442415  # Debug chat ID
 MESSAGE_TYPES = {
     "text": lambda m: m.get("text", ""),
