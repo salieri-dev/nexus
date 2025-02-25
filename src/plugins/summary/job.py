@@ -16,7 +16,7 @@ log = get_logger(__name__)
 # Constants
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 MIN_MESSAGES_THRESHOLD = 60
-DEBUG = True  # Feature toggle for debug mode
+DEBUG = False  # Feature toggle for debug mode
 DEBUG_CHAT_ID = -1001716442415  # Debug chat ID
 MESSAGE_TYPES = {
     "text": lambda m: m.get("text", ""),
@@ -159,9 +159,9 @@ class SummaryJob:
             # Check for reposts and forwards
             repost_tag = ""
             if "forwards" in message or "views" in message:
-                repost_tag = "[CHANNEL POST REPOST] "
+                repost_tag = "[ПОСТ ИЗ КАНАЛА] "
             elif "forward_from_message_id" in message:
-                repost_tag = "[FORWARD MSG] "
+                repost_tag = "[ПЕРЕСЛАННОЕ СООБЩЕНИЕ] "
             
             # Replace actual newlines with \n literal
             content = content.replace("\n", "\\n")
@@ -190,12 +190,6 @@ class SummaryJob:
             # Convert to UTC for MongoDB query
             start_date_utc = start_date.astimezone(pytz.UTC)
             end_date_utc = end_date.astimezone(pytz.UTC)
-            
-            log.debug("Fetching messages",
-                     chat_id=chat_id,
-                     date=date_str,
-                     start_utc=start_date_utc.isoformat(),
-                     end_utc=end_date_utc.isoformat())
             
             # Query messages within the date range for specific chat
             cursor = self.message_repository.collection.find({
@@ -232,10 +226,6 @@ class SummaryJob:
         """Generate summary for a specific chat."""
         try:
             date_str = date.strftime('%Y-%m-%d')
-            log.info("Starting chat summary generation",
-                    chat_id=chat_id,
-                    chat_title=chat_title,
-                    date=date_str)
             
             messages = await self.get_messages_for_date(chat_id, date)
             
@@ -244,12 +234,18 @@ class SummaryJob:
                     raise InsufficientDataError(
                         f"Insufficient messages: {len(messages)} messages"
                     )
-                log.info("Not enough messages for summary",
+                log.debug("Skipping summary: not enough messages",
                         chat_id=chat_id,
                         chat_title=chat_title,
                         message_count=len(messages),
                         threshold=MIN_MESSAGES_THRESHOLD)
                 return
+                
+            log.info("Generating summary",
+                    chat_id=chat_id,
+                    chat_title=chat_title,
+                    date=date_str,
+                    message_count=len(messages))
             
             log.debug("Processing messages",
                      chat_id=chat_id,
@@ -364,10 +360,16 @@ class SummaryJob:
                 chat_ids = [DEBUG_CHAT_ID]
                 log.info("Processing debug chat only (DEBUG=True)", chat_id=DEBUG_CHAT_ID)
             else:
-                # Get all chats in normal mode
-                cursor = self.message_repository.collection.distinct("chat.id")
-                chat_ids = await cursor
-                log.info("Processing all chats (DEBUG=False)", chat_count=len(chat_ids))
+                # Get all non-private chats in normal mode
+                # First get all distinct chat documents with their type
+                pipeline = [
+                    {"$match": {"chat.type": {"$ne": "ChatType.PRIVATE"}}},  # Exclude private chats
+                    {"$group": {"_id": "$chat.id"}}
+                ]
+                cursor = self.message_repository.collection.aggregate(pipeline)
+                result = await cursor.to_list(length=None)
+                chat_ids = [doc["_id"] for doc in result]
+                log.info("Processing all non-private chats (DEBUG=False)", chat_count=len(chat_ids))
             
             processed_count = 0
             enabled_count = 0
@@ -387,11 +389,6 @@ class SummaryJob:
                     chat_msg = await self.message_repository.collection.find_one({"chat.id": chat_id})
                     chat_title = chat_msg["chat"].get("title", str(chat_id)) if chat_msg else str(chat_id)
                     
-                    log.info("Generating summary",
-                            chat_id=chat_id,
-                            chat_title=chat_title,
-                            date=date_str)
-                    
                     # Generate summary for this chat
                     summary_text = await self.generate_chat_summary(chat_id, chat_title, yesterday)
                     if summary_text and client:
@@ -404,15 +401,11 @@ class SummaryJob:
                                 disable_web_page_preview=True,
                                 parse_mode=ParseMode.MARKDOWN
                             )
-                            log.info("Summary sent to chat", chat_id=chat_id)
+                            log.info("Summary sent to chat", chat_id=chat_id, chat_title=chat_title)
                         except Exception as e:
                             log.error("Failed to send summary to chat",
                                      error=str(e),
                                      chat_id=chat_id)
-                    
-                    log.info("Summary generated successfully",
-                            chat_id=chat_id,
-                            chat_title=chat_title)
                     
                 except Exception as e:
                     log.error("Error processing chat",
