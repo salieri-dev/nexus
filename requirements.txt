@@ -13,3 +13,4 @@ numpy
 pytz
 apscheduler
 pydantic
+opencv-python
