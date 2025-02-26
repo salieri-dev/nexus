@@ -10,6 +10,7 @@ from src.plugins.summary import initialize as init_summary_config
 from src.plugins.tanks import init_tanks
 from src.plugins.threads import initialize as init_threads
 from src.plugins.fanfic import initialize as init_fanfic
+from src.plugins.deathbyai import initialize as init_deathbyai
 from src.utils.credentials import Credentials
 from src.utils.logging import setup_structlog
 
@@ -35,6 +36,7 @@ async def main():
         await init_threads()
         await init_fanfic()
         await init_summary_config()
+        await init_deathbyai()
 
         # Initialize tanks data
         await init_tanks()
