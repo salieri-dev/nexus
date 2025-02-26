@@ -10,6 +10,8 @@ from structlog import get_logger
 
 from src.database.client import DatabaseClient
 from src.database.repository.bot_config_repository import BotConfigRepository
+from src.plugins.help import command_handler
+from src.security.rate_limiter import rate_limit
 from src.services.openrouter import OpenRouter
 from .models import BugurtResponse, GreentextResponse, ThreadResponse
 from .repository import ThreadsRepository
@@ -168,6 +170,12 @@ async def handle_thread_generation(
 
 
 @Client.on_message(filters.command(["bugurt"]), group=1)
+@command_handler(commands=["bugurt"], description="Создать бугурт", group="Мемы")
+@rate_limit(
+    operation="bugurt_handler",
+    window_seconds=30,  # One request per 45 seconds
+    on_rate_limited=lambda message: message.reply("🕒 Подождите 30 секунд перед следующим запросом!")
+)
 async def create_bugurt(client: Client, message: Message):
     """Handler for /bugurt command"""
     await handle_thread_generation(
@@ -182,6 +190,12 @@ async def create_bugurt(client: Client, message: Message):
 
 
 @Client.on_message(filters.command(["greentext"]), group=1)
+@command_handler(commands=["greentext"], description="Создать гринтекст", group="Мемы")
+@rate_limit(
+    operation="greentext_handler",
+    window_seconds=30,  # One request per 45 seconds
+    on_rate_limited=lambda message: message.reply("🕒 Подождите 30 секунд перед следующим запросом!")
+)
 async def create_greentext(client: Client, message: Message):
     """Handler for /greentext command"""
     await handle_thread_generation(

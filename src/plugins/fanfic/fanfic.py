@@ -7,6 +7,9 @@ from structlog import get_logger
 
 from src.database.client import DatabaseClient
 from src.database.repository.bot_config_repository import BotConfigRepository
+from src.plugins.help import command_handler
+from src.security.permissions import requires_setting
+from src.security.rate_limiter import rate_limit
 from .repository import FanficRepository
 from .service import generate_fanfic
 
@@ -14,6 +17,13 @@ log = get_logger(__name__)
 
 
 @Client.on_message(filters.command(["fanfic"]), group=1)
+@requires_setting('nsfw')
+@command_handler(commands=["fanfic"], description="Создать фанфик", group="Мемы")
+@rate_limit(
+    operation="fanfic_handler",
+    window_seconds=45,  # One request per 45 seconds
+    on_rate_limited=lambda message: message.reply("🕒 Подождите 45 секунд перед следующим запросом!")
+)
 async def fanfic_handler(client: Client, message: Message):
     """Handler for /fanfic command"""
     db = DatabaseClient.get_instance()
