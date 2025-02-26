@@ -11,6 +11,7 @@ from src.config.framework import (
     get_param_registry, get_param_info, update_chat_setting,
     PeerConfigModel
 )
+from src.plugins.help import command_handler
 
 log = get_logger(__name__)
 
@@ -137,8 +138,12 @@ def get_help_text() -> str:
     
     return "\n".join(help_text)
 
-
 @Client.on_message(filters.command(["config"]), group=1)
+@command_handler(
+    commands=["config"],
+    description="Изменить настройки чата (здесь можно включить NSFW, настроить параметры игр)",
+    group="Утилиты"
+)
 async def settings_handler(client: Client, message: Message):
     """Handle /config command."""
     try:

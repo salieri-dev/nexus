@@ -271,11 +271,11 @@ def create_report(attributes: Dict[str, Any]) -> str:
     return report
 
 
-@Client.on_message(filters.command(["dong", "penis", "dick"]), group=1)
+@Client.on_message(filters.command(["penis", "dick"]), group=1)
 @command_handler(
-    commands=["dong", "penis", "dick"],
+    commands=["penis", "dick"],
     description="Рассчитывает размер пениса пользователя",
-    example="/dong или /dong @username",
+    example="/penis или /penis @username",
     group="NSFW"
 )
 async def dong_command(client: Client, message: Message):

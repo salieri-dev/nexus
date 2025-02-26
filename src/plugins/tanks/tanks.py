@@ -6,6 +6,7 @@ from pyrogram.types import Message
 from structlog import get_logger
 
 from src.database.client import DatabaseClient
+from src.plugins.help import command_handler
 from src.plugins.tanks.repository import TanksRepository
 
 log = get_logger(__name__)
@@ -39,7 +40,11 @@ TANK_TYPES = {
     "td": "ПТ-САУ"
 }
 
-
+@command_handler(
+    commands=["tanks"],
+    description="Получить танк из World of Tanks. Если запроса нет, то выдаст рандомный танк. Если есть цифра в запроса это будет уровень танка. Если текст, то поиск по названию танка.",
+    group="Игры"
+)
 @Client.on_message(filters.command(["tanks"]), group=1)
 async def retrieve_tanks(client: Client, message: Message):
     """Handle /tanks command with various options:

@@ -9,6 +9,7 @@ from pyrogram.types import ChatMember, InputMediaPhoto, Message
 
 from src.plugins.help import command_handler
 from src.security.permissions import requires_setting
+from src.security.rate_limiter import rate_limit
 
 NO_IMAGES_FOUND = "Изображения не найдены."
 GENERAL_ERROR = "❌ Произошла ошибка! Попробуйте позже."
@@ -87,8 +88,13 @@ async def get_chat_members(client: Client, chat_id: int) -> List[ChatMember]:
     description="Отправляет случайные изображения женщин с забавными подписями",
     group="NSFW"
 )
-@Client.on_message(filters.command(["woman", "women", "females"]), group=2)
+@Client.on_message(filters.command(["woman", "women"]), group=2)
 @requires_setting('nsfw')
+@rate_limit(
+    operation="woman_handler",
+    window_seconds=10,  # One request per 10 seconds
+    on_rate_limited=lambda message: message.reply("🕒 Подождите 10 секунд перед следующим запросом!")
+)
 async def woman_command(client: Client, message: Message):
     """Send random woman images with funny captions"""
     try:
