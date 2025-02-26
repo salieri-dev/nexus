@@ -14,7 +14,7 @@ async def initialize():
         config_repo = BotConfigRepository(db_client)
         
         # Read default system prompt from file
-        prompt_path = os.path.join(CURRENT_DIR, "schemas/prompts.txt")
+        prompt_path = os.path.join(CURRENT_DIR, "default_system_prompt.txt")
         system_prompt = ""
         
         if os.path.exists(prompt_path):

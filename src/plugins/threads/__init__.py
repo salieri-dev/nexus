@@ -14,8 +14,8 @@ async def initialize():
         config_repo = BotConfigRepository(db_client)
         
         # Read default system prompts from files
-        bugurt_prompt_path = os.path.join(CURRENT_DIR, "bugurt/bugurt_system_prompt.txt")
-        greentext_prompt_path = os.path.join(CURRENT_DIR, "greentext/greentext_system_prompt.txt")
+        bugurt_prompt_path = os.path.join(CURRENT_DIR, "defaults/bugurt_system_prompt.txt")
+        greentext_prompt_path = os.path.join(CURRENT_DIR, "defaults/greentext_system_prompt.txt")
         
         bugurt_prompt = ""
         greentext_prompt = ""

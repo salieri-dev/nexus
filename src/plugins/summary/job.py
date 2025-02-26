@@ -13,7 +13,7 @@ from src.database.message_repository import MessageRepository, PeerRepository
 from src.database.bot_config_repository import BotConfigRepository
 from src.database.client import DatabaseClient
 from src.services.openrouter import OpenRouter
-from .schemas.models import SummarizationResponse
+from .models import SummarizationResponse
 
 _summary_job = None
 log = get_logger(__name__)
@@ -72,10 +72,6 @@ class SummaryJob:
 
         # Create logs directory if it doesn't exist
         os.makedirs(self.logs_dir, exist_ok=True)
-
-        # Load schema
-        with open("src/plugins/summary/schemas/summarization_schema.json") as f:
-            self.schema = json.load(f)
             
         # Load configurations asynchronously in initialize method
         

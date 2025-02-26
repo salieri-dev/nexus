@@ -1,13 +1,32 @@
 """Service layer for Death by AI game"""
 import json
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Dict, Any, Optional, Tuple
 
+from pydantic import BaseModel, Field
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from structlog import get_logger
 
+from src.database.bot_config_repository import BotConfigRepository
+from src.database.client import DatabaseClient
 from src.plugins.deathbyai.repository import DeathByAIRepository
 from src.services.openrouter import OpenRouter
+
+
+class DecisionEnum(str, Enum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+
+
+class EvaluationResponse(BaseModel):
+    """Pydantic model for evaluation response from the AI."""
+    decision: DecisionEnum = Field(
+        description="Результат попытки выживания - success или failure. Успех - это любой побег или там где игрок выживает полностью без негативных последствий. Иначе - смерть."
+    )
+    details: str = Field(
+        description="Короткий рассказ, объясняющий результат стратегии игрока. Она должна состоять из 2-3 предложений."
+    )
 
 log = get_logger(__name__)
 
@@ -30,12 +49,8 @@ class DeathByAIService:
     def _init_service(self) -> None:
         """Initialize service dependencies"""
         self.openrouter = OpenRouter().client
-        self.evaluation_schema = self._load_evaluation_schema()
-
-    def _load_evaluation_schema(self) -> dict:
-        """Load evaluation schema from file"""
-        with open("src/plugins/deathbyai/evaluation.json", "r") as f:
-            return json.load(f)["schema"]
+        self.db_client = DatabaseClient.get_instance()
+        self.config_repo = BotConfigRepository(self.db_client)
 
     async def start_game(self, repository: DeathByAIRepository, chat_id: int, message_id: int, initiator_id: int) -> \
             Optional[Dict[str, Any]]:
@@ -50,13 +65,20 @@ class DeathByAIService:
         if not scenario:
             return None
 
+        # Get game duration from config
+        game_duration = await self.config_repo.get_plugin_config_value(
+            "deathbyai",
+            "DEATHBYAI_GAME_DURATION_MINUTES",
+            1
+        )
+
         # Create new game with timer
         game = await repository.create_game(
             chat_id=chat_id,
             message_id=message_id,
             scenario=scenario["text"],
             initiator_id=initiator_id,
-            end_time=datetime.utcnow() + timedelta(minutes=1)
+            end_time=datetime.utcnow() + timedelta(minutes=game_duration)
         )
 
         return game
@@ -103,10 +125,6 @@ class DeathByAIService:
     async def submit_strategy(self, repository: DeathByAIRepository, chat_id: int, user_id: int, username: str,
                               strategy: str) -> Tuple[bool, str]:
         """Submit a player's strategy for the active game"""
-        # Validate strategy length
-        if len(strategy.strip()) < 10:
-            return False, "❌ Стратегия слишком короткая! Опишите подробнее ваш план выживания."
-
         game = await repository.get_active_game(chat_id)
         if not game:
             return False, "❌ В этом чате нет активной игры"
@@ -129,7 +147,11 @@ class DeathByAIService:
     async def evaluate_strategy(self, scenario: str, strategy: str) -> Optional[Dict[str, str]]:
         """Evaluate a single player's strategy using OpenRouter API"""
         try:
-            completion = await self.openrouter.chat.completions.create(
+            # Get config values
+            model_name = await self.config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
+            temperature = await self.config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_EVALUATION_TEMPERATURE", 0.7)
+            
+            completion = await self.openrouter.beta.chat.completions.parse(
                 messages=[
                     {
                         "role": "system",
@@ -157,14 +179,15 @@ Remember:
 - Provide 2-3 sentences explaining the outcome"""
                     }
                 ],
-                model="anthropic/claude-3.5-sonnet:beta",
-                temperature=0.7,
-                response_format={"type": "json_schema", "schema": self.evaluation_schema}
+                model=model_name,
+                temperature=temperature,
+                response_format=EvaluationResponse
             )
 
-            result = json.loads(completion.choices[0].message.content)
-            if "decision" in result and "details" in result:
-                return result
+            # Get the result from the model
+            log.info(completion)
+            fanfic_response = completion.choices[0].message.parsed
+            return fanfic_response
 
         except Exception as e:
             log.error("Failed to evaluate strategy", error=str(e))
@@ -187,7 +210,7 @@ Remember:
                 await repository.update_player_evaluation(
                     game_id=game["_id"],
                     user_id=player["user_id"],
-                    evaluation=evaluation
+                    evaluation=evaluation.model_dump()
                 )
 
         # Get updated game state

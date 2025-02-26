@@ -62,10 +62,6 @@ class BotConfigRepository:
     
     async def update_config(self, config_id: str, updates: Dict) -> Dict:
         """Update configuration with new values."""
-        # Get current config
-        current_config = await self.get_config(config_id)
-        
-        # Update database
         await self.collection.update_one(
             {"config_id": config_id},
             {"$set": updates},

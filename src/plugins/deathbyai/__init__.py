@@ -1,30 +1,28 @@
-"""Death by AI game plugin"""
+import os
 import structlog
-
 from src.database.client import DatabaseClient
-from src.plugins.deathbyai.repository import DeathByAIRepository
-from src.plugins.deathbyai.service import DeathByAIService
-from .deathbyai import start_game_command, handle_strategy, end_game_callback
+from src.database.bot_config_repository import BotConfigRepository
 
-# Get the shared logger instance
-logger = structlog.get_logger()
+logger = structlog.get_logger(__name__)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
-async def init_deathbyai():
-    """Initialize Death by AI plugin and create indexes."""
+async def initialize():
+    """Initialize the deathbyai plugin configuration."""
     try:
-        # Get shared database instance
+        # Get database client and config repository
         db_client = DatabaseClient.get_instance()
-
-        # Initialize repository
-        repository = DeathByAIRepository(db_client.client)
-
-        # Create indexes
-        await repository.create_indexes()
-        logger.info("Death by AI indexes created")
+        config_repo = BotConfigRepository(db_client)
+        
+        # Default configuration
+        default_config = {
+            "DEATHBYAI_MODEL_NAME": "anthropic/claude-3.5-sonnet:beta",
+            "DEATHBYAI_GAME_DURATION_MINUTES": 1,
+            "DEATHBYAI_EVALUATION_TEMPERATURE": 0.7
+        }
+        
+        # Register plugin configuration
+        await config_repo.register_plugin_config("deathbyai", default_config)
+        logger.info("DeathByAI plugin configuration initialized")
+        
     except Exception as e:
-        logger.error("Failed to create Death by AI indexes", error=str(e))
-
-
-# Export the initialization function and handlers
-__all__ = ['init_deathbyai', 'start_game_command', 'handle_strategy', 'end_game_callback']
+        logger.error(f"Error initializing deathbyai plugin: {e}")
