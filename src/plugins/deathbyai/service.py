@@ -70,18 +70,8 @@ class DeathByAIService:
         game_duration_seconds = await get_chat_setting(
             chat_id,
             "dbai_submission_window",
-            0  # Default to 0, indicating we should use global config
+            60 
         )
-
-        # If chat-specific setting is not set (0), fall back to global config
-        if game_duration_seconds == 0:
-            # Global config is in minutes, convert to seconds
-            minutes = await self.config_repo.get_plugin_config_value(
-                "deathbyai",
-                "DEATHBYAI_GAME_DURATION_MINUTES",
-                1
-            )
-            game_duration_seconds = minutes * 60
 
         # Add debug logging
         log.info(
