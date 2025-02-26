@@ -1,5 +1,4 @@
 """Service layer for Death by AI game"""
-import json
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, Any, Optional, Tuple
@@ -8,9 +7,10 @@ from pydantic import BaseModel, Field
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from structlog import get_logger
 
-from src.database.bot_config_repository import BotConfigRepository
 from src.database.client import DatabaseClient
+from src.database.repository.bot_config_repository import BotConfigRepository
 from src.plugins.deathbyai.repository import DeathByAIRepository
+from src.plugins.peer_config.settings import get_chat_setting
 from src.services.openrouter import OpenRouter
 
 
@@ -27,6 +27,7 @@ class EvaluationResponse(BaseModel):
     details: str = Field(
         description="Короткий рассказ, объясняющий результат стратегии игрока. Она должна состоять из 2-3 предложений."
     )
+
 
 log = get_logger(__name__)
 
@@ -65,11 +66,29 @@ class DeathByAIService:
         if not scenario:
             return None
 
-        # Get game duration from config
-        game_duration = await self.config_repo.get_plugin_config_value(
-            "deathbyai",
-            "DEATHBYAI_GAME_DURATION_MINUTES",
-            1
+        # Try to get chat-specific setting first (in seconds)
+        game_duration_seconds = await get_chat_setting(
+            chat_id,
+            "dbai_submission_window",
+            0  # Default to 0, indicating we should use global config
+        )
+
+        # If chat-specific setting is not set (0), fall back to global config
+        if game_duration_seconds == 0:
+            # Global config is in minutes, convert to seconds
+            minutes = await self.config_repo.get_plugin_config_value(
+                "deathbyai",
+                "DEATHBYAI_GAME_DURATION_MINUTES",
+                1
+            )
+            game_duration_seconds = minutes * 60
+
+        # Add debug logging
+        log.info(
+            "Game duration set",
+            chat_id=chat_id,
+            game_duration_seconds=game_duration_seconds,
+            custom_setting=game_duration_seconds != 0
         )
 
         # Create new game with timer
@@ -78,7 +97,7 @@ class DeathByAIService:
             message_id=message_id,
             scenario=scenario["text"],
             initiator_id=initiator_id,
-            end_time=datetime.utcnow() + timedelta(minutes=game_duration)
+            end_time=datetime.utcnow() + timedelta(seconds=game_duration_seconds)
         )
 
         return game
@@ -88,6 +107,7 @@ class DeathByAIService:
         if not game.get("end_time"):
             return 0
 
+        # Calculate remaining time in seconds
         remaining = (game["end_time"] - datetime.utcnow()).total_seconds()
         return max(0, int(remaining))
 
@@ -148,9 +168,11 @@ class DeathByAIService:
         """Evaluate a single player's strategy using OpenRouter API"""
         try:
             # Get config values
-            model_name = await self.config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
-            temperature = await self.config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_EVALUATION_TEMPERATURE", 0.7)
-            
+            model_name = await self.config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_MODEL_NAME",
+                                                                        "anthropic/claude-3.5-sonnet:beta")
+            temperature = await self.config_repo.get_plugin_config_value("deathbyai",
+                                                                         "DEATHBYAI_EVALUATION_TEMPERATURE", 0.7)
+
             completion = await self.openrouter.beta.chat.completions.parse(
                 messages=[
                     {

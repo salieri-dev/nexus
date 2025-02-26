@@ -4,7 +4,7 @@ from typing import Optional, Callable, Any
 import structlog
 
 from src.database.client import DatabaseClient
-from src.database.ratelimit_repository import RateLimitRepository
+from src.database.repository.ratelimit_repository import RateLimitRepository
 
 logger = structlog.get_logger()
 

@@ -4,7 +4,7 @@ from functools import wraps
 from pyrogram.enums import ChatType
 from pyrogram.types import Message
 
-from src.plugins.settings.settings import get_chat_setting
+from src.plugins.peer_config.settings import get_chat_setting
 
 
 def requires_setting(setting: str):

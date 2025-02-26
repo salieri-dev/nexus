@@ -5,7 +5,8 @@ from pyrogram import Client, filters
 from structlog import get_logger
 
 from src.database.client import DatabaseClient
-from src.database.message_repository import MessageRepository, PeerRepository
+from src.database.repository.message_repository import MessageRepository
+from src.database.repository.peer_config_repository import PeerConfigRepository
 
 # Get the shared logger instance
 log = get_logger(__name__)
@@ -47,10 +48,10 @@ async def message(client: Client, message):
 
         # Initialize repositories
         message_repo = MessageRepository(db_client.client)
-        peer_repo = PeerRepository(db_client.client)
+        config_repo = PeerConfigRepository(db_client.client)
 
         # Get or create peer config
-        peer_config = await peer_repo.get_peer_config(message.chat.id)
+        peer_config = await config_repo.get_peer_config(message.chat.id)
 
         # Prepare message data with created_at
         message_data = serialize(message)

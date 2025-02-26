@@ -1,5 +1,6 @@
-from typing import Dict, Optional, Any, List
 import os
+from typing import Dict, Any
+
 import structlog
 
 # Get the shared logger instance
@@ -23,7 +24,7 @@ class BotConfigRepository:
         # No default configurations are created here
         # Plugins will register their own configurations
         logger.info("Bot configuration repository initialized")
-    
+
     @staticmethod
     def _read_file_content(file_path: str) -> str:
         """Read content from a file."""
@@ -37,7 +38,7 @@ class BotConfigRepository:
         except Exception as e:
             logger.error(f"Error reading file {file_path}: {str(e)}")
             return ""
-    
+
     async def get_config(self, config_id: str) -> Dict:
         """
         Get configuration by ID, using cache if available.
@@ -46,20 +47,20 @@ class BotConfigRepository:
         # Check cache first
         if config_id in self._config_cache:
             return self._config_cache[config_id]
-        
+
         # Check database
         config = await self.collection.find_one({"config_id": config_id})
-        
+
         if not config:
             # Return empty config with just the ID
             config = {"config_id": config_id}
             await self.collection.insert_one(config)
             logger.info(f"Created empty configuration for {config_id}")
-        
+
         # Cache the config
         self._config_cache[config_id] = config
         return config
-    
+
     async def update_config(self, config_id: str, updates: Dict) -> Dict:
         """Update configuration with new values."""
         await self.collection.update_one(
@@ -67,15 +68,15 @@ class BotConfigRepository:
             {"$set": updates},
             upsert=True
         )
-        
+
         # Update cache
         if config_id in self._config_cache:
             self._config_cache[config_id].update(updates)
         else:
             await self.get_config(config_id)  # This will cache the config
-        
+
         return self._config_cache[config_id]
-    
+
     def invalidate_cache(self, config_id: str = None):
         """
         Invalidate the cache for a specific config_id or entire cache.
@@ -84,9 +85,9 @@ class BotConfigRepository:
             self._config_cache.pop(config_id, None)
         else:
             self._config_cache.clear()
-    
+
     # Generic configuration methods for plugins
-    
+
     async def register_plugin_config(self, plugin_id: str, default_config: Dict) -> Dict:
         """
         Register a plugin's configuration with default values if it doesn't exist.
@@ -101,18 +102,18 @@ class BotConfigRepository:
         """
         # Check if config already exists
         config = await self.collection.find_one({"config_id": plugin_id})
-        
+
         if not config:
             # Create new config with defaults
             config = {"config_id": plugin_id, **default_config}
             await self.collection.insert_one(config)
             logger.info(f"Registered default configuration for plugin: {plugin_id}")
-            
+
             # Cache the config
             self._config_cache[plugin_id] = config
-        
+
         return config
-    
+
     async def get_plugin_config(self, plugin_id: str) -> Dict:
         """
         Get a plugin's configuration.
@@ -124,7 +125,7 @@ class BotConfigRepository:
             The plugin's configuration
         """
         return await self.get_config(plugin_id)
-    
+
     async def update_plugin_config(self, plugin_id: str, updates: Dict) -> Dict:
         """
         Update a plugin's configuration.
@@ -137,7 +138,7 @@ class BotConfigRepository:
             The updated configuration
         """
         return await self.update_config(plugin_id, updates)
-    
+
     async def get_plugin_config_value(self, plugin_id: str, key: str, default: Any = None) -> Any:
         """
         Get a specific value from a plugin's configuration.
@@ -152,7 +153,7 @@ class BotConfigRepository:
         """
         config = await self.get_config(plugin_id)
         return config.get(key, default)
-    
+
     async def set_plugin_config_value(self, plugin_id: str, key: str, value: Any) -> Dict:
         """
         Set a specific value in a plugin's configuration.
@@ -166,7 +167,7 @@ class BotConfigRepository:
             The updated configuration
         """
         return await self.update_config(plugin_id, {key: value})
-    
+
     async def reset_plugin_config(self, plugin_id: str, default_config: Dict) -> Dict:
         """
         Reset a plugin's configuration to default values.
@@ -184,9 +185,9 @@ class BotConfigRepository:
             {"$set": default_config},
             upsert=True
         )
-        
+
         # Invalidate cache for this config
         self.invalidate_cache(plugin_id)
-        
+
         # Get and return the updated config
         return await self.get_config(plugin_id)

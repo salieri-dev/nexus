@@ -32,7 +32,7 @@ os.environ['XDG_CACHE_HOME'] = CACHE_DIR
 Path(CACHE_DIR).mkdir(parents=True, exist_ok=True)
 Path(LOGS_DIR).mkdir(parents=True, exist_ok=True)
 
-# Environment settings
+# Environment peer_config
 BATCH_SIZE = int(os.getenv('BATCH_SIZE', 100))  # Reduced from 1000 to prevent memory pressure
 SENTIMENT_MODEL = os.getenv('SENTIMENT_MODEL', 'seara/rubert-tiny2-russian-sentiment')
 SENSITIVE_MODEL = os.getenv('SENSITIVE_TOPICS_MODEL', 'Skoltech/russian-sensitive-topics')

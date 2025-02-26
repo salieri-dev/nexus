@@ -1,4 +1,3 @@
-import json
 import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -9,9 +8,10 @@ from apscheduler.triggers.cron import CronTrigger
 from pyrogram.enums import ParseMode
 from structlog import get_logger
 
-from src.database.message_repository import MessageRepository, PeerRepository
-from src.database.bot_config_repository import BotConfigRepository
 from src.database.client import DatabaseClient
+from src.database.repository.bot_config_repository import BotConfigRepository
+from src.database.repository.message_repository import MessageRepository
+from src.database.repository.peer_config_repository import PeerConfigRepository
 from src.services.openrouter import OpenRouter
 from .models import SummarizationResponse
 
@@ -37,11 +37,11 @@ class InsufficientDataError(Exception):
     pass
 
 
-async def init_summary(message_repository: MessageRepository, peer_repository: PeerRepository, client=None):
+async def init_summary(message_repository: MessageRepository, config_repository: PeerConfigRepository, client=None):
     """Initialize the summary job singleton."""
     global _summary_job
     if _summary_job is None:
-        _summary_job = SummaryJob(message_repository, peer_repository, client)
+        _summary_job = SummaryJob(message_repository, config_repository, client)
         # Initialize configuration
         await _summary_job.initialize_config()
     elif client and not _summary_job.client:
@@ -50,31 +50,31 @@ async def init_summary(message_repository: MessageRepository, peer_repository: P
 
 
 class SummaryJob:
-    def __init__(self, message_repository, peer_repository, client=None):
+    def __init__(self, message_repository, config_repository, client=None):
         self.message_repository = message_repository
-        self.peer_repository = peer_repository
+        self.config_repository = config_repository
         self.scheduler = AsyncIOScheduler()
         self.openrouter = OpenRouter()
         self.client = client
-        
+
         # Get database client for config repository
         db_client = DatabaseClient.get_instance()
         self.config_repo = BotConfigRepository(db_client)
-        
+
         # These will be loaded from config in async init
         self.system_prompt = ""
         self.model_name = "openai/gpt-4o-mini"  # Default
         self.min_messages_threshold = 60  # Default
-        
+
         # Set logs directory based on environment
         self.logs_dir = "/app/logs/chat_summaries" if os.getenv("DOCKER_ENV") else "logs/chat_summaries"
         log.info("Initializing summary job", logs_dir=self.logs_dir)
 
         # Create logs directory if it doesn't exist
         os.makedirs(self.logs_dir, exist_ok=True)
-            
+
         # Load configurations asynchronously in initialize method
-        
+
         # Get cron schedule from env or use default (10:00 MSK daily)
         cron_schedule = os.getenv('SUMMARIZATION_CRON', '0 10 * * *')
         log.info("Configuring schedule", cron_schedule=cron_schedule)
@@ -92,29 +92,29 @@ class SummaryJob:
 
         self.scheduler.start()
         log.info("Summary job scheduler started")
-        
+
     async def initialize_config(self):
         """Load configuration from bot_config_repository"""
         try:
             # Get summary plugin configuration
             config = await self.config_repo.get_plugin_config("summary")
-            
+
             # Load system prompt
             self.system_prompt = config.get("SUMMARY_SYSTEM_PROMPT", "")
-            
+
             # Load model name
             self.model_name = config.get("SUMMARY_MODEL_NAME")
-            
+
             # Load min messages threshold
             self.min_messages_threshold = config.get("SUMMARY_MIN_MESSAGES_THRESHOLD", 60)
-            
+
             log.info("Summary plugin configuration loaded",
                      model=self.model_name,
                      threshold=self.min_messages_threshold)
-                     
+
         except Exception as e:
             log.error("Error loading summary configuration", error=str(e))
-        
+
     async def _generate_summary(self, chat_log: str) -> Optional[Dict]:
         """Generate a summary of the chat log using OpenRouter API"""
         try:
@@ -137,18 +137,18 @@ class SummaryJob:
             )
 
             log.info("Received summary response", response=completion)
-            
+
             # The response is already parsed into SummarizationResponse model
             summary = completion.choices[0].message.parsed
-            
+
             log.info("Summary generated successfully", themes_count=len(summary.themes))
-            
+
             return summary
 
         except Exception as e:
             log.error("Error generating summary", error=str(e))
             return None
-        
+
     def _format_message(self, message: Dict) -> Optional[str]:
         """Format a message according to the specified format."""
         try:
@@ -310,8 +310,8 @@ class SummaryJob:
 
             if not summary or not summary.themes:
                 log.error("Invalid summarization result",
-                        chat_id=chat_id,
-                        chat_title=chat_title)
+                          chat_id=chat_id,
+                          chat_title=chat_title)
                 return
 
             # Write to file
@@ -336,10 +336,10 @@ class SummaryJob:
                 f.write(json_str)
 
             log.info("Summary files written successfully",
-                    chat_id=chat_id,
-                    chat_title=chat_title,
-                    log_filename=filename,
-                    summary_filename=summary_filename)
+                     chat_id=chat_id,
+                     chat_title=chat_title,
+                     log_filename=filename,
+                     summary_filename=summary_filename)
 
             # Format and return summary text
             message_text = "📊 Итоги обсуждений за "
@@ -405,10 +405,10 @@ class SummaryJob:
 
             for chat_id in chat_ids:
                 try:
-                    # Check if summarization is enabled for this chat
-                    config = await self.peer_repository.get_peer_config(chat_id)
-
-                    if not config.get("summary_enabled", False):
+                    # Check if summarization is enabled for this chat using the framework
+                    from src.config.framework import get_chat_setting
+                    
+                    if not await get_chat_setting(chat_id, "summary", default=False):
                         log.debug("Summary disabled for chat", chat_id=chat_id)
                         continue
 

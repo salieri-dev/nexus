@@ -5,17 +5,12 @@ from pyrogram.enums import ChatType, ParseMode
 from pyrogram.types import Message
 from structlog import get_logger
 
-from src.plugins.settings.settings import get_chat_setting
+from src.config.framework import get_chat_setting
+from src.security.rate_limiter import rate_limit
+from .constants import MAX_AUDIO_DURATION, TRANSCRIPTION_ERROR, TRANSCRIPTION_SUCCESS
 from .service import transcribe_audio
 
 log = get_logger(__name__)
-
-# Constants
-MAX_AUDIO_DURATION = 600  # 10 minutes
-TRANSCRIPTION_SUCCESS = "\n> {}"  # Added newline and space after >
-TRANSCRIPTION_ERROR = "❌ Не удалось транскрибировать аудио"
-
-from src.security.ratelimiter.rate_limiter import rate_limit
 
 
 @Client.on_message(filters.voice | filters.audio | filters.video_note, group=1)  # Changed to group 1 to run earlier
@@ -27,7 +22,7 @@ async def transcribe_handler(client: Client, message: Message):
 
     # Skip transcription in non-private chats if disabled
     if message.chat.type != ChatType.PRIVATE:
-        if not await get_chat_setting(message.chat.id, 'transcribe'):
+        if not await get_chat_setting(message.chat.id, 'transcribe', default=True):
             return
 
     # Get audio duration

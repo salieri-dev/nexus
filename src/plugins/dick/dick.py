@@ -9,34 +9,27 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 
 from src.plugins.help import command_handler
-
-# Message constants
-NSFW_DISABLED = "❌ NSFW команды отключены в этом чате"
-GENERAL_ERROR = "❌ Произошла ошибка! Попробуйте позже."
-
-# Size categories
-DICK_SIZE_CATEGORY = "Ниже среднего"
-DICK_SIZE_SLIGHTLY_BELOW = "Чуть ниже среднего"
-DICK_SIZE_AVERAGE = "Средний"
-DICK_SIZE_ABOVE = "Выше среднего"
-DICK_SIZE_SIGNIFICANTLY_ABOVE = "Значительно выше среднего"
-
-# Satisfaction levels
-DICK_SATISFACTION_POOR = "Сложно удовлетворить"
-DICK_SATISFACTION_BELOW = "Ниже среднего"
-DICK_SATISFACTION_AVERAGE = "Средний уровень удовлетворения"
-DICK_SATISFACTION_ABOVE = "Выше среднего, хорошие шансы"
-DICK_SATISFACTION_EXCELLENT = "Отличные шансы на удовлетворение"
-
-# Constants
-AVG_LENGTH_ERECT = 15
-STD_LENGTH_ERECT = 1.66
-AVG_GIRTH_ERECT = 12
-STD_GIRTH_ERECT = 1.10
-AVG_LENGTH_FLACCID = 9.5
-STD_LENGTH_FLACCID = 1.57
-AVG_GIRTH_FLACCID = 9.5
-STD_GIRTH_FLACCID = 0.90
+from .constants import (
+    GENERAL_ERROR,
+    DICK_SIZE_CATEGORY,
+    DICK_SIZE_SLIGHTLY_BELOW,
+    DICK_SIZE_AVERAGE,
+    DICK_SIZE_ABOVE,
+    DICK_SIZE_SIGNIFICANTLY_ABOVE,
+    DICK_SATISFACTION_POOR,
+    DICK_SATISFACTION_BELOW,
+    DICK_SATISFACTION_AVERAGE,
+    DICK_SATISFACTION_ABOVE,
+    DICK_SATISFACTION_EXCELLENT,
+    AVG_LENGTH_ERECT,
+    STD_LENGTH_ERECT,
+    AVG_GIRTH_ERECT,
+    STD_GIRTH_ERECT,
+    AVG_LENGTH_FLACCID,
+    STD_LENGTH_FLACCID,
+    AVG_GIRTH_FLACCID,
+    STD_GIRTH_FLACCID
+)
 
 
 def calculate_dong_attributes(username: str) -> Dict[str, Any]:

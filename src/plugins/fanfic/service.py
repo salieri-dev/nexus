@@ -3,9 +3,9 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from structlog import get_logger
 
-from src.services.openrouter import OpenRouter
 from src.database.client import DatabaseClient
-from src.database.bot_config_repository import BotConfigRepository
+from src.database.repository.bot_config_repository import BotConfigRepository
+from src.services.openrouter import OpenRouter
 
 log = get_logger(__name__)
 
@@ -39,7 +39,11 @@ async def generate_fanfic(topic: str) -> Optional[FanficResponse]:
     open_router = OpenRouter().client
 
     # Create the completion request using Pydantic model
-    completion = await open_router.beta.chat.completions.parse(messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"Создай фанфик на тему '{topic}'. Это должно быть в формате JSON обязательно по схеме что тебе предоставляю я."}], model=model_name, temperature=0.8, max_tokens=4000, response_format=FanficResponse)
+    completion = await open_router.beta.chat.completions.parse(messages=[{"role": "system", "content": system_prompt},
+                                                                         {"role": "user",
+                                                                          "content": f"Создай фанфик на тему '{topic}'. Это должно быть в формате JSON обязательно по схеме что тебе предоставляю я."}],
+                                                               model=model_name, temperature=0.8, max_tokens=4000,
+                                                               response_format=FanficResponse)
     log.info(completion)
     # The response is already parsed into FanficResponse model
     fanfic_response = completion.choices[0].message.parsed

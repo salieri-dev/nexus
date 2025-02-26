@@ -11,6 +11,7 @@ from src.database.client import DatabaseClient
 from src.plugins.deathbyai.repository import DeathByAIRepository
 from src.plugins.deathbyai.service import DeathByAIService
 from src.plugins.help import command_handler
+from .constants import END_GAME_BUTTON, GAME_EXISTS, GAME_START, GENERAL_ERROR, NO_ACTIVE_GAME, NO_PERMISSION
 
 # Get the shared logger instance
 log = get_logger(__name__)
@@ -19,18 +20,6 @@ log = get_logger(__name__)
 db_client = DatabaseClient.get_instance()
 repository = DeathByAIRepository(db_client.client)
 service = DeathByAIService()
-
-# Error messages
-GAME_EXISTS = "❌ В этом чате уже есть активная игра!"
-NO_ACTIVE_GAME = "❌ В этом чате нет активной игры!"
-GENERAL_ERROR = "❌ Произошла ошибка! Попробуйте позже."
-INVALID_REPLY = "❌ Ответьте на сообщение с игровым сценарием!"
-NO_PERMISSION = "❌ У вас нет прав на завершение игры!"
-
-
-def get_user_mention(user) -> str:
-    """Get user mention"""
-    return user.mention()
 
 
 async def is_user_authorized(client: Client, chat_id: int, user_id: int, game_initiator_id: int) -> bool:
@@ -52,7 +41,7 @@ async def start_game_command(client: Client, message: Message):
     """Start a new Death by AI game"""
     try:
         # Send initial message
-        status_msg = await message.reply_text("🎮 Создаю новую игру...", quote=True)
+        status_msg = await message.reply_text(GAME_START, quote=True)
 
         # Start new game
         game = await service.start_game(
@@ -68,7 +57,7 @@ async def start_game_command(client: Client, message: Message):
 
         # Create keyboard for ending game
         keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("Завершить игру", callback_data="end_game")
+            InlineKeyboardButton(END_GAME_BUTTON, callback_data="end_game")
         ]])
 
         # Send initial game announcement

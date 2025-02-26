@@ -3,14 +3,16 @@ import asyncio
 from pyrogram import Client, idle
 
 from src.database.client import DatabaseClient
-from src.database.message_repository import MessageRepository, PeerRepository
-from src.database.bot_config_repository import BotConfigRepository
-from src.plugins.summary.job import init_summary
+from src.database.repository.bot_config_repository import BotConfigRepository
+from src.database.repository.message_repository import MessageRepository
+from src.database.repository.peer_config_repository import PeerConfigRepository
+from src.plugins.deathbyai import initialize as init_deathbyai
+from src.plugins.falai import initialize as init_falai
+from src.plugins.fanfic import initialize as init_fanfic
 from src.plugins.summary import initialize as init_summary_config
+from src.plugins.summary.job import init_summary
 from src.plugins.tanks import init_tanks
 from src.plugins.threads import initialize as init_threads
-from src.plugins.fanfic import initialize as init_fanfic
-from src.plugins.deathbyai import initialize as init_deathbyai
 from src.utils.credentials import Credentials
 from src.utils.logging import setup_structlog
 
@@ -37,6 +39,7 @@ async def main():
         await init_fanfic()
         await init_summary_config()
         await init_deathbyai()
+        await init_falai()
 
         # Initialize tanks data
         await init_tanks()
@@ -55,8 +58,8 @@ async def main():
 
         # Initialize repositories and summary job after app is started
         message_repository = MessageRepository(db.client)
-        peer_repository = PeerRepository(db.client)
-        await init_summary(message_repository, peer_repository, app)
+        config_repository = PeerConfigRepository(db.client)
+        await init_summary(message_repository, config_repository, app)
 
         await idle()
     except Exception as e:

@@ -9,7 +9,7 @@ from pyrogram.types import Message
 from structlog import get_logger
 
 from src.database.client import DatabaseClient
-from src.database.bot_config_repository import BotConfigRepository
+from src.database.repository.bot_config_repository import BotConfigRepository
 from src.services.openrouter import OpenRouter
 from .models import BugurtResponse, GreentextResponse, ThreadResponse
 from .repository import ThreadsRepository
@@ -80,14 +80,16 @@ async def handle_thread_generation(
                                         quote=True)
         try:
             openrouter = OpenRouter()
-            
+
             # Get model name from config
             model_name = "anthropic/claude-3.5-sonnet:beta"  # Default
             if command == "bugurt":
-                model_name = await config_repository.get_plugin_config_value("threads", "BUGURT_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
+                model_name = await config_repository.get_plugin_config_value("threads", "BUGURT_MODEL_NAME",
+                                                                             "anthropic/claude-3.5-sonnet:beta")
             elif command == "greentext":
-                model_name = await config_repository.get_plugin_config_value("threads", "GREENTEXT_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
-            
+                model_name = await config_repository.get_plugin_config_value("threads", "GREENTEXT_MODEL_NAME",
+                                                                             "anthropic/claude-3.5-sonnet:beta")
+
             completion = await openrouter.client.beta.chat.completions.parse(
                 messages=[
                     {

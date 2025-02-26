@@ -24,7 +24,8 @@ class BugurtResponse(ThreadResponse):
 
 class GreentextResponse(ThreadResponse):
     """4chan-style thread response"""
-    story: str = Field(description="The greentext story that is funny or sad in the style of typical 4chan user on /b/ board")
+    story: str = Field(
+        description="The greentext story that is funny or sad in the style of typical 4chan user on /b/ board")
     comments: List[str] = Field(
         description="Comments in 4ch style on /b/ board",
         min_items=1,

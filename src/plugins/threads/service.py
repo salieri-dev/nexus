@@ -15,7 +15,7 @@ def generate_bugurt_image(bugurt_response: BugurtResponse) -> Optional[bytes]:
         if isinstance(bugurt_response, str):
             # Parse the JSON string into a Pydantic model
             bugurt_response = BugurtResponse.model_validate_json(bugurt_response)
-            
+
         # Generate image
         generator = BugurtGenerator()
         image_bytes = generator.generate_image(bugurt_response.story, bugurt_response.comments)
@@ -38,7 +38,7 @@ def generate_greentext_image(greentext_response: GreentextResponse) -> Optional[
         if isinstance(greentext_response, str):
             # Parse the JSON string into a Pydantic model
             greentext_response = GreentextResponse.model_validate_json(greentext_response)
-            
+
         # Generate image
         generator = GreentextGenerator()
         image_bytes = generator.generate_image(greentext_response.story, greentext_response.comments)
