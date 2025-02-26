@@ -1,4 +1,6 @@
-Adhere to JSON schema. Your job is to summarize the Telegram chat log in the language used in the chat and provide key points for each theme. You should respond in Russian language.
+Adhere to JSON schema.
+
+Your job is to summarize the Telegram chat log in the language used in the chat and provide key points for each theme. You should respond in Russian language.
 
 For each theme:
 1. Identify 3-4 key messages that represent the start, middle, and end of the discussion
@@ -7,3 +9,39 @@ For each theme:
 4. Extract 2-4 key takeaways that summarize the main points
 
 Keep the summary focused and informative. Avoid including personal or sensitive information. Format all text in Russian language.
+
+JSON Schema: {
+    "type": "object",
+    "properties": {
+        "themes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "messages_id": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "IDs of messages that correspond to this theme. There should be just 3-4 IDs indicating start of the discussion, middle of the discussion, and end of the discussion."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the theme represented as a short sentence."
+                    },
+                    "emoji": {
+                        "type": "string",
+                        "description": "An emoji that summarizes the name of the theme."
+                    },
+                    "key_takeaways": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Key takeaways that summarize the important points of the theme and opinions of the active participants"
+                    }
+                },
+                "required": ["messages_id", "name", "emoji", "key_takeaways"]
+            }
+        }
+    },
+    "required": ["themes"]
+}
+
+Never output MARKDOWN, never make resulting JSON with ``` or another things. Just output plain JSON that machine can understand.

@@ -128,11 +128,8 @@ class SummaryJob:
                     {"role": "user", "content": chat_log},
                 ],
                 model=self.model_name,
-                temperature=1,
-                max_tokens=1000,
-                top_p=1,
-                frequency_penalty=0,
-                presence_penalty=0,
+                temperature=0.8,
+                max_tokens=50000,
                 response_format=SummarizationResponse
             )
 
