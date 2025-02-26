@@ -19,8 +19,19 @@ async def initialize():
         bot_config_repo = BotConfigRepository(db_client)
         peer_config_repo = PeerConfigRepository(db_client.client)
 
+        # Read default system prompt from file
+        prompt_path = os.path.join(CURRENT_DIR, "default_system_prompt.txt")
+        system_prompt = ""
+
+        if os.path.exists(prompt_path):
+            with open(prompt_path, 'r', encoding='utf-8') as file:
+                system_prompt = file.read()
+        else:
+            logger.error(f"File not found: {prompt_path}")
+
         # Default configuration
         default_config = {
+            "DEATHBYAI_SYSTEM_PROMPT": system_prompt,
             "DEATHBYAI_MODEL_NAME": "anthropic/claude-3.5-sonnet:beta",
             "DEATHBYAI_GAME_DURATION_MINUTES": 1,
             "DEATHBYAI_EVALUATION_TEMPERATURE": 0.7

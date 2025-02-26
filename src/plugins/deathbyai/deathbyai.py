@@ -2,7 +2,7 @@
 import asyncio
 
 from pyrogram import Client, filters
-from pyrogram.enums import ChatMemberStatus
+from pyrogram.enums import ChatMemberStatus, ChatType
 from pyrogram.errors import FloodWait
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from structlog import get_logger
@@ -39,6 +39,12 @@ async def is_user_authorized(client: Client, chat_id: int, user_id: int, game_in
 @Client.on_message(filters.command(["deathbyai"]), group=1)
 async def start_game_command(client: Client, message: Message):
     """Start a new Death by AI game"""
+    
+    if message.chat.type == ChatType.PRIVATE:
+        await message.reply_text("Игра не поддерживается в личных сообщениях")
+        return
+    
+    
     try:
         # Send initial message
         status_msg = await message.reply_text(GAME_START, quote=True)

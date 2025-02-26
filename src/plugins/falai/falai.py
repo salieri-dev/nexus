@@ -14,7 +14,7 @@ log = get_logger(__name__)
 
 
 @Client.on_message(filters.voice | filters.audio | filters.video_note, group=1)  # Changed to group 1 to run earlier
-@rate_limit(operation="transcribe", window_seconds=20)
+@rate_limit(operation="transcribe", window_seconds=30)
 async def transcribe_handler(client: Client, message: Message):
     """Handle voice and audio messages for transcription"""
     if not message.from_user:
@@ -59,6 +59,8 @@ async def transcribe_handler(client: Client, message: Message):
     # Skip if transcription contains blocked text
     blocked_texts = [
         "DimaTorzok",
+        "Субтитры делал",
+        "Субтитры сделал",
         "Продолжение следует"
     ]
 
