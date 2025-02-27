@@ -1,6 +1,7 @@
 from io import BytesIO
 from typing import Tuple, Union
 from structlog import get_logger
+from pyrogram.enums import ChatType
 from pyrogram.types import Message
 
 log = get_logger(__name__)
@@ -42,3 +43,16 @@ async def get_photo(message: Message) -> Union[Tuple[BytesIO, bool], Tuple[None,
 
     photo.seek(0)
     return photo, is_gif
+
+
+def is_private_chat(message: Message) -> bool:
+    """
+    Check if the message is from a private chat
+    
+    Args:
+        message: The message to check
+        
+    Returns:
+        bool: True if the chat is private, False otherwise
+    """
+    return message.chat.type == ChatType.PRIVATE

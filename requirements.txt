@@ -17,3 +17,4 @@ opencv-python
 pyfiglet
 wand
 python-magic
+markovify

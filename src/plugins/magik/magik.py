@@ -2,6 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 from structlog import get_logger
 
+from src.security.rate_limiter import rate_limit
 from src.utils.helpers import get_photo
 from src.plugins.magik.service import ImageService
 from src.plugins.help import command_handler
@@ -15,7 +16,7 @@ MAGIK_NO_IMAGE = "Пожалуйста, предоставьте изображ�
 MAGIK_GENERATION_FAILED = "Не удалось сгенерировать изображение."
 MAGIK_NO_REPLY_IMAGE = "Пожалуйста, предоставьте изображение или ответьте на сообщение с изображением."
 GENERAL_ERROR = "Произошла ошибка."
-
+RATELIMIT_TIME = 10
 
 # General helper for commands operating on image + GIF
 async def handle_image_command(message: Message, process_func):
@@ -60,59 +61,69 @@ async def handle_param_command(message: Message, process_func, default_value=90)
 # ---- COMMANDS ----
 @command_handler(commands=["magik"], description="Применяет эффект искажения к изображению", group="Изображения")
 @Client.on_message(filters.command("magik"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def magik_command(client: Client, message: Message):
     await handle_image_command(message, lambda photo, is_gif: image_service.do_magik(2, photo, is_gif))
 
 
 @command_handler(commands=["pixel"], description="Пикселизирует изображение", group="Изображения")
 @Client.on_message(filters.command("pixel"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def pixel_command(client: Client, message: Message):
     await handle_image_command(message, lambda photo, is_gif: image_service.make_pixel_gif(photo, 9) if is_gif else image_service.make_pixel(photo, 9))
 
 
 @command_handler(commands=["waaw"], description="Зеркально отражает изображение по вертикали от центра", group="Изображения")
 @Client.on_message(filters.command("waaw"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def waaw_command(client: Client, message: Message):
     return await handle_image_command(message, lambda photo, is_gif: image_service.do_waaw(photo))
 
 
 @command_handler(commands=["haah"], description="Зеркально отражает изображение по горизонтали от центра", group="Изображения")
 @Client.on_message(filters.command("haah"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def haah_command(client: Client, message: Message):
     return await handle_image_command(message, lambda photo, is_gif: image_service.do_haah(photo))
 
 
 @command_handler(commands=["woow"], description="Зеркально отражает верхнюю половину изображения вниз", group="Изображения")
 @Client.on_message(filters.command("woow"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def woow_command(client: Client, message: Message):
     return await handle_image_command(message, lambda photo, is_gif: image_service.do_woow(photo))
 
 
 @command_handler(commands=["hooh"], description="Зеркально отражает левую половину изображения вправо", group="Изображения")
 @Client.on_message(filters.command("hooh"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def hooh_command(client: Client, message: Message):
     return await handle_image_command(message, lambda photo, is_gif: image_service.do_hooh(photo))
 
 
 @command_handler(commands=["flipimg"], description="Переворачивает изображение вертикально", group="Изображения")
 @Client.on_message(filters.command("flipimg"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def flipimg_command(client: Client, message: Message):
     return await handle_image_command(message, lambda photo, is_gif: image_service.flip_image(photo))
 
 
 @command_handler(commands=["flop"], description="Переворачивает изображение горизонтально", group="Изображения")
 @Client.on_message(filters.command("flop"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def flop_command(client: Client, message: Message):
     return await handle_image_command(message, lambda photo, is_gif: image_service.flop_image(photo))
 
 
 @command_handler(commands=["invert"], description="Инвертирует цвета изображения", group="Изображения")
 @Client.on_message(filters.command("invert"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def invert_command(client: Client, message: Message):
     return await handle_image_command(message, lambda photo, is_gif: image_service.invert_image(photo))
 
 
 @command_handler(commands=["rotate"], description="Поворачивает изображение на указанный угол", arguments="[угол поворота; по умолчанию: 90]", group="Изображения")
 @Client.on_message(filters.command("rotate"), group=2)
+@rate_limit(operation="magik_handler",window_seconds=RATELIMIT_TIME, on_rate_limited=lambda message: message.reply(f"🕒 Подождите {RATELIMIT_TIME} секунд перед следующим запросом!"))
 async def rotate_command(client: Client, message: Message):
     return await handle_param_command(message, image_service.rotate_image, default_value=90)
