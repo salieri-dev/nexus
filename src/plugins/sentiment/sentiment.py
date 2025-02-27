@@ -92,7 +92,7 @@ async def sentiment_stats(client: Client, message: Message):
         text=MESSAGES["SENTIMENT_ANALYZING"],
         quote=True
     )
-
+    
     try:
         message_repository = get_message_repository()
         
