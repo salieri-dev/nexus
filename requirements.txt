@@ -18,3 +18,7 @@ pyfiglet
 wand
 python-magic
 markovify
+scipy
+scikit-learn
+pandas
+seaborn
