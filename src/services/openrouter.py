@@ -7,7 +7,7 @@ from src.utils.credentials import Credentials
 log = get_logger(name=__name__)
 
 HEADERS = {
-    "HTTP-Referer": "t.me/not_salieri_bot",
+    "HTTP-Referer": "http://salieri.dev",
     "X-Title": "Nexus"
 }
 
@@ -34,7 +34,7 @@ class OpenRouter:
         transport = httpx.HTTPTransport(retries=3, verify=False)
         http_client_args = {
             "timeout": 120.0,
-            "transport": transport
+            "transport": transport,
         }
 
         if proxy_config.enabled and proxy_config.host and proxy_config.port:
