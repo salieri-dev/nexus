@@ -85,14 +85,14 @@ async def sentiment_stats(client: Client, message: Message):
             text=MESSAGES["SENTIMENT_PRIVATE_CHAT"],
             quote=True
         )
-        return
+        return  
 
     # Get messages and analyze sentiment
     init_msg = await message.reply_text(
         text=MESSAGES["SENTIMENT_ANALYZING"],
         quote=True
     )
-    
+
     try:
         message_repository = get_message_repository()
         

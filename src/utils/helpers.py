@@ -1,10 +1,32 @@
 from io import BytesIO
+import os
 from typing import Tuple, Union
 from structlog import get_logger
 from pyrogram.enums import ChatType
 from pyrogram.types import Message
 
 log = get_logger(__name__)
+
+def is_developer(user_id: int) -> bool:
+    """
+    Check if the user is the owner of the bot
+    
+    Args:
+        user_id (int): The user ID to check
+        
+    Returns:
+        bool: True if the user is the owner, False otherwise
+    """
+    owner_id = os.getenv('OWNER_ID')
+    if not owner_id:
+        log.warning("OWNER_ID environment variable is not set")
+        return False
+    
+    try:
+        return int(owner_id) == user_id
+    except ValueError:
+        log.error("OWNER_ID environment variable is not a valid integer")
+        return False
 
 async def get_user_mention(user) -> str:
     """Get user mention"""
