@@ -33,7 +33,7 @@ async def is_user_authorized(client: Client, chat_id: int, user_id: int, game_in
 
 @command_handler(
     commands=["deathbyai"],
-    description="Начать игру Death by AI - попробуй выжить в случайном сценарии",
+    description="Игра, где вы должны выжить против ИИ",
     group="Игры"
 )
 @Client.on_message(filters.command(["deathbyai"]), group=1)

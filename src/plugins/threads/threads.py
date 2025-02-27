@@ -170,7 +170,7 @@ async def handle_thread_generation(
 
 
 @Client.on_message(filters.command(["bugurt"]), group=1)
-@command_handler(commands=["bugurt"], description="Создать бугурт", group="Мемы")
+@command_handler(commands=["bugurt"], arguments="[тема]", description="Создать бугурт", group="Мемы")
 @rate_limit(
     operation="bugurt_handler",
     window_seconds=30,  # One request per 45 seconds
@@ -190,7 +190,7 @@ async def create_bugurt(client: Client, message: Message):
 
 
 @Client.on_message(filters.command(["greentext"]), group=1)
-@command_handler(commands=["greentext"], description="Создать гринтекст", group="Мемы")
+@command_handler(commands=["greentext"], arguments="[тема]", description="Создать гринтекст", group="Мемы")
 @rate_limit(
     operation="greentext_handler",
     window_seconds=30,  # One request per 45 seconds

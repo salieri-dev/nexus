@@ -42,7 +42,8 @@ TANK_TYPES = {
 
 @command_handler(
     commands=["tanks"],
-    description="Получить танк из World of Tanks. Если запроса нет, то выдаст рандомный танк. Можно задать цифру после /tanks что отфильтрует по разряду танка. Если текст, то поиск по названию танка.",
+    description="Получить танк из World of Tanks",
+    arguments="[уровень|название]",
     group="Игры"
 )
 @Client.on_message(filters.command(["tanks"]), group=1)

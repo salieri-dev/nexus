@@ -25,18 +25,11 @@ BACKGROUND_PATH = os.path.join("src", "plugins", "thxcum", "assets", "background
 TEMPLATE_PATH = os.path.join("src", "plugins", "thxcum", "assets", "template.png")
 FONT_PATH = os.path.join("src", "plugins", "thxcum", "assets", "trebuc.ttf")
 
-# Initialize service
-thxcum_service = None
-
-try:
-    thxcum_service = ThxCumService(
-        background_path=BACKGROUND_PATH,
-        template_path=TEMPLATE_PATH,
-        font_path=FONT_PATH
-    )
-except Exception as e:
-    log.error(f"Failed to initialize ThxCumService: {str(e)}")
-
+thxcum_service = ThxCumService(
+    background_path=BACKGROUND_PATH,
+    template_path=TEMPLATE_PATH,
+    font_path=FONT_PATH
+)
 
 async def check_media_type(message: Message) -> Tuple[bool, bool, bool]:
     """Check if message contains media and what type"""
@@ -105,11 +98,11 @@ async def get_image_from_message(client: Client, message: Message) -> Optional[b
 
 
 @command_handler(
-    commands=["thxcum", "cum", "thx_i_came"],
-    description="Обрабатывает изображение в стиле ThxCum",
-    group="NSFW"
+    commands=["cum"],
+    description="«Спасибо, я кончил»",
+    group="NSFW", arguments="[необяз. @ пользователя | реплай на картинку]"
 )
-@Client.on_message(filters.command(["thxcum", "cum", "thx_i_came"]), group=2)
+@Client.on_message(filters.command(["cum"]), group=2)
 @requires_setting('nsfw')
 @rate_limit(
     operation="thxcum_handler",
@@ -118,10 +111,7 @@ async def get_image_from_message(client: Client, message: Message) -> Optional[b
 )
 async def thxcum_command(client: Client, message: Message):
     """Process an image in ThxCum style and send it back"""
-    if not thxcum_service:
-        await message.reply_text("❌ Сервис обработки изображений недоступен.", quote=True)
-        return
-
+    await message.reply_text("❌ Сервис обработки изображений недоступен.", quote=True)
     # Send initial notification
     notification = await message.reply_text("🔄 Обрабатываем изображение...", quote=True)
 
@@ -139,8 +129,7 @@ async def thxcum_command(client: Client, message: Message):
         await message.reply_photo(
             photo=result,
             quote=True,
-            caption="Обработано с помощью @not_salieri_bot",
-            has_spoiler=True
+            has_spoiler=True,
         )
         
         # Delete notification

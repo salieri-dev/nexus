@@ -275,7 +275,7 @@ def create_report(attributes: Dict[str, Any]) -> str:
 @command_handler(
     commands=["penis", "dick"],
     description="Рассчитывает размер пениса пользователя",
-    example="/penis или /penis @username",
+    arguments="[необяз. @ пользователя]",
     group="NSFW"
 )
 async def dong_command(client: Client, message: Message):

@@ -12,13 +12,13 @@ log = get_logger(__name__)
 command_help: Dict[str, Dict] = {}
 
 
-def command_handler(commands: List[str], description: str, example: str = None, group: str = "Общие"):
+def command_handler(commands: List[str], description: str, arguments: str = None, group: str = "Общие"):
     """Decorator to register command help information.
     
     Args:
         commands: List of command names (without /)
         description: Command description
-        example: Optional example usage
+        arguments: Optional arguments specification (e.g. "[prompt] - тема для генерации")
         group: Command group for organization
     """
 
@@ -27,7 +27,7 @@ def command_handler(commands: List[str], description: str, example: str = None, 
         for cmd in commands:
             command_help[cmd] = {
                 'description': description,
-                'example': example,
+                'arguments': arguments,
                 'group': group
             }
 
@@ -53,7 +53,7 @@ async def help_handler(client: Client, message: Message):
                 handlers[key] = {
                     'commands': [],
                     'description': info['description'],
-                    'example': info['example'],
+                    'arguments': info['arguments'],
                     'group': info['group']
                 }
             handlers[key]['commands'].append(cmd)
@@ -89,17 +89,32 @@ async def help_handler(client: Client, message: Message):
             help_text.append(f"\n{emoji} {group}:")
 
             for handler in sorted(handlers, key=lambda x: x['commands'][0]):
-                commands = ', '.join(f"/{cmd}" for cmd in handler['commands'])
+                # Get all commands for this handler
+                cmd_list = [f"/{cmd}" for cmd in handler['commands']]
+                commands = ', '.join(cmd_list)
+                
+                # Add arguments if available
+                args_text = ""
+                if handler.get('arguments'):
+                    # Handle both string and list arguments
+                    if isinstance(handler['arguments'], list):
+                        # Join the list but preserve the original format
+                        args_text = f" __{', '.join(handler['arguments'])}__"
+                    else:
+                        args_text = f" __{handler['arguments']}__"
+                
                 # Add NSFW emoji if in NSFW group
                 nsfw_mark = " 🔞" if group == "NSFW" else ""
-                help_text.append(f"• {commands} — {handler['description']}{nsfw_mark}")
+                command_text = f"• {commands}{args_text} — {handler['description']}{nsfw_mark}"
+                
+                help_text.append(command_text)
 
         # Add passive functionality section in blockquote
         help_text.extend([
             "\n**Пассивный функционал:**",
             "• Скачивает рилзы из Instagram",
-            "• Переводит войсы в текст",
-            ">Вы можете включить суммаризацию чата, отключить расшифровку голосовых и многое другое в чатах через команду /peer_config! "
+            "• Переводит войсы в текст\n",
+            ">Вы можете включить суммаризацию чата, отключить расшифровку голосовых и многое другое в чатах через команду /config!\n"
             "\n>Команды отмеченные 🔞 могут быть использованы в групповых чатах только если в настройках разрешен соответствующий контент. "
             "Бот находится в стадии бета-тестирования, могут быть баги и ошибки. В случае предложений или ошибок, контакт для связи: @not_salieri"
         ])

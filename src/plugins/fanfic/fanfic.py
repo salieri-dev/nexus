@@ -18,7 +18,7 @@ log = get_logger(__name__)
 
 @Client.on_message(filters.command(["fanfic"]), group=1)
 @requires_setting('nsfw')
-@command_handler(commands=["fanfic"], description="Создать фанфик", group="Мемы")
+@command_handler(commands=["fanfic"], arguments="[тема]", description="Создать фанфик", group="Мемы")
 @rate_limit(
     operation="fanfic_handler",
     window_seconds=45,  # One request per 45 seconds
