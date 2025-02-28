@@ -28,6 +28,8 @@ log = get_logger(__name__)
 async def nhentai_handler(client: Client, message: Message):
     """Handler for /nhentai command"""
     fetcher = NhentaiAPI()
+    
+    
 
     if len(message.command) <= 1:
         try:

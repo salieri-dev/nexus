@@ -13,10 +13,8 @@ from pyrogram.types import InputMediaPhoto, Message
 from structlog import get_logger
 
 from src.config.framework import get_chat_setting
-from src.database.client import DatabaseClient
 from src.plugins.nhentai.constants import BLACKLIST_TAGS, PROXY_URL
 from src.plugins.nhentai.models import Images, NhentaiGallery, Tag, Title
-from src.plugins.nhentai.repository import NhentaiRepository
 
 log = get_logger(__name__)
 
@@ -30,12 +28,6 @@ class NhentaiService:
     """Service for nhentai operations"""
     
     BASE_URL: str = "https://nhentai.net"
-    
-    @staticmethod
-    def get_repository():
-        """Get nhentai repository instance"""
-        db_client = DatabaseClient.get_instance()
-        return NhentaiRepository(db_client.client)
     
     @staticmethod
     async def get_blur_setting(chat_id: int, message: Message = None) -> bool:
