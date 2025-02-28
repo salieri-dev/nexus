@@ -32,28 +32,25 @@ log = get_logger(__name__)
 
 class DeathByAIService:
     """Service for managing Death by AI game logic"""
-
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(DeathByAIService, cls).__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
-    def __init__(self):
-        if not self._initialized:
-            self._init_service()
-            self._initialized = True
-
-    def _init_service(self) -> None:
-        """Initialize service dependencies"""
-        self.openrouter = OpenRouter().client
-        self.db_client = DatabaseClient.get_instance()
-        self.config_repo = BotConfigRepository(self.db_client)
-
-    async def start_game(self, repository: DeathByAIRepository, chat_id: int, message_id: int, initiator_id: int) -> Optional[Dict[str, Any]]:
+    
+    @staticmethod
+    def get_repository():
+        """Get DeathByAI repository instance"""
+        db_client = DatabaseClient.get_instance()
+        return DeathByAIRepository(db_client.client)
+    
+    @staticmethod
+    def get_config_repository():
+        """Get bot config repository instance"""
+        db_client = DatabaseClient.get_instance()
+        return BotConfigRepository(db_client)
+    
+    @staticmethod
+    async def start_game(chat_id: int, message_id: int, initiator_id: int) -> Optional[Dict[str, Any]]:
         """Start a new game if none is active"""
+        # Get repository instance
+        repository = DeathByAIService.get_repository()
+        
         # Check for active game
         active_game = await repository.get_active_game(chat_id)
         if active_game:
@@ -75,7 +72,8 @@ class DeathByAIService:
 
         return game
 
-    def get_remaining_time(self, game: Dict[str, Any]) -> int:
+    @staticmethod
+    def get_remaining_time(game: Dict[str, Any]) -> int:
         """Get remaining time in seconds"""
         if not game.get("end_time"):
             return 0
@@ -84,9 +82,10 @@ class DeathByAIService:
         remaining = (game["end_time"] - datetime.utcnow()).total_seconds()
         return max(0, int(remaining))
 
-    def format_game_message(self, game: Dict[str, Any], show_button: bool = True) -> Tuple[str, Optional[InlineKeyboardMarkup]]:
+    @staticmethod
+    def format_game_message(game: Dict[str, Any], show_button: bool = True) -> Tuple[str, Optional[InlineKeyboardMarkup]]:
         """Format game message with timer and submitted strategies"""
-        remaining = self.get_remaining_time(game)
+        remaining = DeathByAIService.get_remaining_time(game)
         is_finished = game.get("status") == "finished"
 
         message = ["**🎯 Игра завершена!**" if is_finished else "**🎯 Игра началась!**", f"\n**📜 Сценарий:**\n>{game['scenario']}"]
@@ -106,8 +105,12 @@ class DeathByAIService:
 
         return "\n".join(message), keyboard
 
-    async def submit_strategy(self, repository: DeathByAIRepository, chat_id: int, user_id: int, username: str, strategy: str) -> Tuple[bool, str]:
+    @staticmethod
+    async def submit_strategy(chat_id: int, user_id: int, username: str, strategy: str) -> Tuple[bool, str]:
         """Submit a player's strategy for the active game"""
+        # Get repository instance
+        repository = DeathByAIService.get_repository()
+        
         game = await repository.get_active_game(chat_id)
         if not game:
             return False, "❌ В этом чате нет активной игры"
@@ -122,15 +125,22 @@ class DeathByAIService:
 
         return success, "✅ Ваша стратегия принята!" if success else "❌ Не удалось сохранить стратегию"
 
-    async def evaluate_strategy(self, scenario: str, strategy: str, player_name: str = "") -> Optional[Dict[str, str]]:
+    @staticmethod
+    async def evaluate_strategy(scenario: str, strategy: str, player_name: str = "") -> Optional[Dict[str, str]]:
         """Evaluate a single player's strategy using OpenRouter API"""
         try:
+            # Get config repository
+            config_repo = DeathByAIService.get_config_repository()
+            
             # Get config values
-            model_name = await self.config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
-            temperature = await self.config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_EVALUATION_TEMPERATURE", 0.7)
-            system_prompt = await self.config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_SYSTEM_PROMPT", "")
+            model_name = await config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
+            temperature = await config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_EVALUATION_TEMPERATURE", 0.7)
+            system_prompt = await config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_SYSTEM_PROMPT", "")
 
-            completion = await self.openrouter.beta.chat.completions.parse(
+            # Get OpenRouter client
+            openrouter = OpenRouter().client
+            
+            completion = await openrouter.beta.chat.completions.parse(
                 messages=[
                     {
                         "role": "system",
@@ -156,8 +166,12 @@ class DeathByAIService:
 
         return None
 
-    async def end_game(self, repository: DeathByAIRepository, chat_id: int) -> Optional[Dict[str, Any]]:
+    @staticmethod
+    async def end_game(chat_id: int) -> Optional[Dict[str, Any]]:
         """End the active game and evaluate all strategies"""
+        # Get repository instance
+        repository = DeathByAIService.get_repository()
+        
         game = await repository.get_active_game(chat_id)
         if not game:
             return None
@@ -168,14 +182,15 @@ class DeathByAIService:
         # Evaluate each player's strategy
         for player in game["players"]:
             player_name = player.get("mention", "")
-            evaluation = await self.evaluate_strategy(game["scenario"], player["strategy"], player_name)
+            evaluation = await DeathByAIService.evaluate_strategy(game["scenario"], player["strategy"], player_name)
             if evaluation:
                 await repository.update_player_evaluation(game_id=game["_id"], user_id=player["user_id"], evaluation=evaluation.model_dump())
 
         # Get updated game state
         return await repository.get_game_by_message(game["message_id"])
 
-    def format_results(self, game: Dict[str, Any]) -> str:
+    @staticmethod
+    def format_results(game: Dict[str, Any]) -> str:
         """Format game results for display"""
         if not game["players"]:
             return "🎯 Игра Death by AI завершена!\n\n❌ Никто не решился взять вызов!"
@@ -211,13 +226,18 @@ class DeathByAIService:
 
         return "\n\n".join(message)
 
-    def format_end_message(self, game: Dict[str, Any], results_message_id: int) -> str:
+    @staticmethod
+    def format_end_message(game: Dict[str, Any], results_message_id: int) -> str:
         """Format game end message with scenario and results link"""
         chat_id = str(game["chat_id"]).replace("-100", "")
         results_link = f"https://t.me/c/{chat_id}/{results_message_id}"
         return f"🏁 Игра завершена!\n\n[Результаты]({results_link})"
 
-    async def validate_game_message(self, repository: DeathByAIRepository, message_id: int, reply_message_id: int) -> bool:
+    @staticmethod
+    async def validate_game_message(message_id: int, reply_message_id: int) -> bool:
         """Validate that a reply is to the correct game message"""
+        # Get repository instance
+        repository = DeathByAIService.get_repository()
+        
         game = await repository.get_game_by_message(message_id)
         return game is not None and game["status"] == "active" and game["message_id"] == reply_message_id
