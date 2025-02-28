@@ -7,14 +7,14 @@ from structlog import get_logger
 
 from src.config.framework import get_chat_setting
 from src.security.rate_limiter import rate_limit
-from .constants import MAX_AUDIO_DURATION, TRANSCRIPTION_ERROR, TRANSCRIPTION_SUCCESS
-from .service import transcribe_audio
+from .constants import MAX_AUDIO_DURATION, MIN_AUDIO_DURATION, TRANSCRIPTION_ERROR, TRANSCRIPTION_SUCCESS
+from src.services.falai import transcribe_audio
 
 log = get_logger(__name__)
 
 
 @Client.on_message(filters.voice | filters.audio | filters.video_note, group=1)  # Changed to group 1 to run earlier
-@rate_limit(operation="transcribe", window_seconds=30)
+@rate_limit(operation="transcribe", window_seconds=10)
 async def transcribe_handler(client: Client, message: Message):
     """Handle voice and audio messages for transcription"""
     if not message.from_user:
@@ -32,6 +32,10 @@ async def transcribe_handler(client: Client, message: Message):
         else message.video_note.duration if message.video_note
         else None
     )
+
+    if duration and duration < MIN_AUDIO_DURATION:
+        log.info("Audio too short")
+        return
 
     if duration and duration > MAX_AUDIO_DURATION:
         log.info("Audio too long")
