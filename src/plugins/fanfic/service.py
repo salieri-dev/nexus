@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, Any
 
 from pydantic import BaseModel, Field
 from pyrogram.enums import ParseMode
@@ -9,6 +9,7 @@ from structlog import get_logger
 from src.database.client import DatabaseClient
 from src.database.repository.bot_config_repository import BotConfigRepository
 from src.services.openrouter import OpenRouter
+from src.services.falai import FalAI
 from .constants import DEFAULT_TEMPERATURE, MAX_TOKENS, MAX_MESSAGE_LENGTH, MESSAGES
 from .repository import FanficRepository
 
@@ -19,8 +20,10 @@ log = get_logger(__name__)
 class FanficResponse(BaseModel):
     """Pydantic model for fanfic response"""
 
-    title: str = Field(description="The title of the fanfiction")
-    content: str = Field(description="The full text of the fanfiction")
+    title: str = Field(description="The title of the fanfiction (in Russian)")
+    content: str = Field(description="The full text of the fanfiction (in Russian)")
+    image_prompt: str = Field(description="Come up with image prompt for poster to describe the story that will be created with AI. Be highly detailed in appearances. It should be safe for work (SFW). (In English!)")
+    danbooru_prompt: str = Field(description="Come up with image prompt with danbooru tags (example: score_9, score_8_up, score_8, sexy 18 year old girl, 1girl, mikasa ackerman, black hair, short hair, black eyes, perfect breasts, hard nipples, fishnet stockings, seductive eyes, naughty, shaped body, defined waist, perfectly round breasts, very small round, anus, spread ass, slim waist, toned tummy, round butt, perfect butt, thighs, prominent breasts, small tan lines, large teardrop shaped breasts, oily skin, tan lines reaching out to the viewer, wide hips, carefree, nudity, nipples, small pussy, sexy pose, classroom, slim waist, perfect details, shy, seductive, big breasts, standing, close up, bottom up, point of view, cinematic lighting, volumetric lighting, lace panties, camel toe, erect nipples, oily skin) for poster to describe the story that will be created with AI (In English!). Be highly detailed in appearances, actions, and emotions. The more detailed the better.")
 
 
 class FanficService:
@@ -81,7 +84,7 @@ class FanficService:
 
         # Create the completion request using Pydantic model
         completion = await open_router.beta.chat.completions.parse(
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"Создай фанфик на тему '{topic}'. Это должно быть в формате JSON обязательно по схеме что тебе предоставляю я."}], model=model_name, temperature=DEFAULT_TEMPERATURE, max_tokens=MAX_TOKENS, response_format=FanficResponse
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"Создай фанфик на тему '{topic}'. Это должно быть в формате JSON обязательно по схеме что тебе предоставляю я. Не забудь предоставить текст для генерации ПОСТЕРА фанфики на английском языке. Добавь сюда так же заголовок фанфика, нейронная сеть сможет это отрисовать."}], model=model_name, temperature=DEFAULT_TEMPERATURE, max_tokens=MAX_TOKENS, response_format=FanficResponse
         )
         log.info(completion)
 
@@ -110,38 +113,51 @@ class FanficService:
         model_name = await config_repo.get_plugin_config_value("fanfic", "FANFIC_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
 
         # Store fanfic data in database
-        fanfic_record = {"user_id": user_id, "chat_id": chat_id, "topic": topic, "title": fanfic_response.title, "content": fanfic_response.content, "timestamp": datetime.utcnow(), "model": model_name, "temperature": DEFAULT_TEMPERATURE}
+        fanfic_record = {"user_id": user_id, "chat_id": chat_id, "topic": topic, "title": fanfic_response.title, "content": fanfic_response.content, "image_prompt": fanfic_response.image_prompt, "danbooru_image_prompt": fanfic_response.danbooru_prompt, "timestamp": datetime.utcnow(), "model": model_name, "temperature": DEFAULT_TEMPERATURE}
 
         return await repository.save_fanfic(fanfic_record)
 
     @staticmethod
-    async def format_and_send_response(message: Message, fanfic_response: FanficResponse, reply_msg: Message) -> None:
+    async def generate_image_with_falai(fanfic_response: FanficResponse) -> Dict[str, Any]:
         """
-        Format and send the fanfic response to the user.
-
+        Generate an image for the fanfic using FalAI.
+        
         Args:
-            message: Original message that triggered the fanfic generation
-            fanfic_response: The generated fanfic response
-            reply_msg: The initial "generating" message to be deleted
+            fanfic_response: The generated fanfic response containing the image prompt
+            
+        Returns:
+            Dict containing the image generation result with URLs and metadata
         """
-        # Extract title and content from Pydantic model
-        title = fanfic_response.title
-        content = fanfic_response.content
-
-        # Format the response
-        formatted_response = f"<b>{title}</b>\n\n{content}"
-
-        # Delete the initial "generating" message
-        await reply_msg.delete()
-
-        # Split message if it's too long
-        if len(formatted_response) > MAX_MESSAGE_LENGTH:
-            # Send title and first part
-            first_part = formatted_response[:MAX_MESSAGE_LENGTH]
-            await message.reply(first_part, quote=True, parse_mode=ParseMode.HTML)
-
-            # Send remaining parts
-            remaining = formatted_response[MAX_MESSAGE_LENGTH:]
-            await message.reply(remaining, quote=True, parse_mode=ParseMode.HTML)
-        else:
-            await message.reply(formatted_response, quote=True, parse_mode=ParseMode.HTML)
+        # Get FalAI singleton instance
+        falai = FalAI()
+        
+        # Prepare the payload for image generation
+        payload = {
+            "prompt": fanfic_response.image_prompt,
+            "image_size": "landscape_4_3",
+            "num_inference_steps": 28,
+            "guidance_scale": 3.5,
+            "num_images": 1,
+            "enable_safety_checker": False,
+            "output_format": "jpeg",
+            "loras": []
+        }
+        
+        log.info(f"Generating image with prompt: {fanfic_response.image_prompt}")
+        
+        try:
+            # Generate the image using flux-lora model
+            final_result = None
+            async for event in falai.generate_image("fal-ai/flux-lora", payload):
+                # Log progress events if needed
+                if isinstance(event, dict) and "logs" in event:
+                    log.info(f"Image generation progress: {event['logs']}")
+                
+                # Store the final result
+                final_result = event
+            
+            log.info(f"Image generation result: {final_result}")
+            return final_result
+        except Exception as e:
+            log.error(f"Error generating image: {str(e)}")
+            return {"success": False, "error": str(e)}
