@@ -1,19 +1,112 @@
 import io
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any, Optional
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy.signal import find_peaks
+from structlog import get_logger
 
+from src.database.client import DatabaseClient
+from src.database.repository.message_repository import MessageRepository
 from .constants import MIN_MESSAGES, MIN_TEXT_LENGTH, MAX_TEXT_LENGTH, SENTIMENT_THRESHOLD, TOPIC_THRESHOLD, GRAPH_WINDOWS, GRAPH_COLORS, MESSAGES
+
+log = get_logger(__name__)
+
+
+class SentimentWrapper:
+    """Wrapper for sentiment data"""
+
+    def __init__(self, sentiment_dict: Dict[str, Any]):
+        self.positive = sentiment_dict.get("positive", 0.0)
+        self.negative = sentiment_dict.get("negative", 0.0)
+        self.neutral = sentiment_dict.get("neutral", 0.0)
+        self.sensitive_topics = sentiment_dict.get("sensitive_topics", {})
+
+
+class MessageWrapper:
+    """Wrapper for message dictionaries to provide expected structure and support both dict and attribute access"""
+
+    def __init__(self, message_dict: Dict[str, Any]):
+        # Store the original dictionary
+        self._data = message_dict
+
+        # Extract user_id from the message
+        if "from_user" in message_dict and "id" in message_dict["from_user"]:
+            self.user_id = message_dict["from_user"]["id"]
+        else:
+            self.user_id = message_dict.get("user_id")
+
+        # Extract sentiment data
+        if "sentiment" in message_dict and message_dict["sentiment"]:
+            self.sentiment = SentimentWrapper(message_dict["sentiment"])
+        else:
+            self.sentiment = None
+
+        # For raw_data access in create_sentiment_graph
+        self.raw_data = self
+
+    def __getitem__(self, key):
+        """Support dictionary-style access: msg['key']"""
+        return self._data[key]
+
+    def __contains__(self, key):
+        """Support 'key in msg' checks"""
+        return key in self._data
+
+    def get(self, key, default=None):
+        """Support msg.get('key', default) calls"""
+        return self._data.get(key, default)
 
 
 class SentimentService:
+    @staticmethod
+    def get_message_repository():
+        """Get message repository instance"""
+        db_client = DatabaseClient.get_instance()
+        return MessageRepository(db_client.client)
+        
+    @staticmethod
+    async def analyze_chat_sentiment_by_id(chat_id: int) -> Tuple[str, Optional[io.BytesIO]]:
+        """
+        Analyze sentiment for a specific chat by its ID.
+        
+        Args:
+            chat_id: The ID of the chat to analyze
+            
+        Returns:
+            Tuple containing:
+            - Analysis text
+            - Graph bytes (or None if no messages)
+        """
+        try:
+            # Get repository
+            message_repository = SentimentService.get_message_repository()
+            
+            # Get all messages from the chat
+            raw_messages = await message_repository.get_all_messages_by_chat(chat_id)
+            
+            log.info(f"Retrieved {len(raw_messages)} messages for sentiment analysis in chat {chat_id}")
+            
+            # Wrap raw message dictionaries with our wrapper class
+            messages = [MessageWrapper(msg) for msg in raw_messages]
+            
+            # Analyze sentiment
+            analysis = await SentimentService.analyze_chat_sentiment(messages)
+            
+            # Create sentiment graph if there are messages
+            graph_bytes = None
+            if messages:
+                graph_bytes = await SentimentService.create_sentiment_graph(messages)
+                
+            return analysis, graph_bytes
+            
+        except Exception as e:
+            log.error(f"Error in sentiment analysis service: {e}")
+            raise
     @staticmethod
     async def create_sentiment_graph(messages: List[Dict]) -> io.BytesIO:
         """Create an enhanced time-based sentiment analysis graph"""

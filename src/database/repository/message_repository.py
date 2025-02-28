@@ -189,3 +189,27 @@ class MessageRepository:
         """
         query = {"chat.id": chat_id}
         return await self.collection.find_one(query)
+        
+    async def get_all_messages_by_chat(self, chat_id: int) -> List[Dict]:
+        """
+        Get all messages from a specific chat without a limit.
+        This is a specialized version of get_messages_by_chat for cases where all messages are needed.
+        
+        Args:
+            chat_id: The ID of the chat to get messages from
+            
+        Returns:
+            List of all messages from the chat
+        """
+        # Try the new structure first (chat.id)
+        query = {"chat.id": chat_id}
+        cursor = self.collection.find(query)
+        messages = await cursor.to_list(length=None)
+        
+        # If no messages found, try the old structure (chat_id)
+        if not messages:
+            query = {"chat_id": chat_id}
+            cursor = self.collection.find(query)
+            messages = await cursor.to_list(length=None)
+            
+        return messages
