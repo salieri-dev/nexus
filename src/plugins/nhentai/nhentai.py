@@ -28,8 +28,6 @@ log = get_logger(__name__)
 async def nhentai_handler(client: Client, message: Message):
     """Handler for /nhentai command"""
     fetcher = NhentaiAPI()
-    
-    
 
     if len(message.command) <= 1:
         try:
@@ -39,7 +37,7 @@ async def nhentai_handler(client: Client, message: Message):
             try:
                 media: NhentaiGallery = await fetcher.get_by_id(random_number)
             except Exception as e:
-                if hasattr(e, 'response') and hasattr(e.response, 'status_code') and e.response.status_code == 404:
+                if hasattr(e, "response") and hasattr(e.response, "status_code") and e.response.status_code == 404:
                     log.warning(f"Gallery with ID {random_number} not found. Retrying...")
                     return await nhentai_handler(client, message)
                 elif "timeout" in str(e).lower():
@@ -177,7 +175,7 @@ async def nhentai_url_handler(client: Client, message: Message):
         try:
             media: NhentaiGallery = await fetcher.get_by_id(gallery_id)
         except Exception as e:
-            if hasattr(e, 'response') and hasattr(e.response, 'status_code') and e.response.status_code == 404:
+            if hasattr(e, "response") and hasattr(e.response, "status_code") and e.response.status_code == 404:
                 log.warning(f"Gallery with ID {gallery_id} not found. Not sending error message...")
                 return
             elif "timeout" in str(e).lower():

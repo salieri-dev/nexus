@@ -10,134 +10,137 @@
 </head>
 
 <body class="makaba">
-<div class="cntnt">
-    <header class="cntnt__header header">
-        <main class="cntnt__main">
-            <div class="tn">
-                <a id="top"></a>
-            </div>
-            <div id="js-posts">
-                <div class="thread" id="thread-{{ post_id }}">
-                    <div class="post post_type_oppost post_withimg" data-num="{{ post_id }}" id="post-{{ post_id }}">
-                        <div class="post__details" id="post-details-{{ post_id }}">
-                            <input class="turnmeoff" name="delete" type="checkbox" value="{{ post_id }}">
-                            <span class="post__detailpart">
+    <div class="cntnt">
+        <header class="cntnt__header header">
+            <main class="cntnt__main">
+                <div class="tn">
+                    <a id="top"></a>
+                </div>
+                <div id="js-posts">
+                    <div class="thread" id="thread-{{ post_id }}">
+                        <div class="post post_type_oppost post_withimg" data-num="{{ post_id }}"
+                            id="post-{{ post_id }}">
+                            <div class="post__details" id="post-details-{{ post_id }}">
+                                <input class="turnmeoff" name="delete" type="checkbox" value="{{ post_id }}">
+                                <span class="post__detailpart">
                                     <span class="post__anon">{{ name }}</span>
                                 </span>
-                            <span class="post__detailpart">
+                                <span class="post__detailpart">
                                     <span class="post__time">{{ date }}</span>
                                 </span>
-                            <span class="post__detailpart">
+                                <span class="post__detailpart">
                                     <a class="post__reflink" href="#" id="{{ post_id }}">№</a>
-                                    <a class="js-post-reply-btn post__reflink" data-num="{{ post_id }}" href="#">{{ post_id }}</a>
+                                    <a class="js-post-reply-btn post__reflink" data-num="{{ post_id }}" href="#">{{
+                                        post_id }}</a>
                                 </span>
-                            <span class="post__detailpart">
-                                    <svg class="post__btn post__btn_type_favorite icon desktop"
-                                         data-num="{{ post_id }}"
-                                         xmlns="http://www.w3.org/2000/svg">
+                                <span class="post__detailpart">
+                                    <svg class="post__btn post__btn_type_favorite icon desktop" data-num="{{ post_id }}"
+                                        xmlns="http://www.w3.org/2000/svg">
                                         <use xlink:href="#icon__star"></use>
                                     </svg>
-                                    <svg class="post__btn post__btn_type_hide icon desktop"
-                                         data-num="{{ post_id }}" xmlns="http://www.w3.org/2000/svg">
+                                    <svg class="post__btn post__btn_type_hide icon desktop" data-num="{{ post_id }}"
+                                        xmlns="http://www.w3.org/2000/svg">
                                         <use xlink:href="#icon__hide"></use>
                                     </svg>
-                                    <svg class="post__btn post__btn_type_menu icon desktop"
-                                         data-num="{{ post_id }}" xmlns="http://www.w3.org/2000/svg">
+                                    <svg class="post__btn post__btn_type_menu icon desktop" data-num="{{ post_id }}"
+                                        xmlns="http://www.w3.org/2000/svg">
                                         <use xlink:href="#icon__addmenu"></use>
                                     </svg>
                                 </span>
-                        </div>
+                            </div>
 
-                        <div class="post__images post__images_type_multi">
-                            <figure class="post__image">
-                                <figcaption class="post__file-attr">
-                                    <a class="desktop" href="{{ image_path }}" target="_blank"
-                                       title="{{ image_name }}">
-                                        {{ image_name }}
+                            <div class="post__images post__images_type_multi">
+                                <figure class="post__image">
+                                    <figcaption class="post__file-attr">
+                                        <a class="desktop" href="{{ image_path }}" target="_blank"
+                                            title="{{ image_name }}">
+                                            {{ image_name }}
+                                        </a>
+                                        <svg class="icon js-post-findimg desktop" xmlns="http://www.w3.org/2000/svg">
+                                            <use xlink:href="#icon__findimg"></use>
+                                        </svg>
+                                        <svg class="icon js-post-saveimg desktop" xmlns="http://www.w3.org/2000/svg">
+                                            <use xlink:href="#icon__saveimg"></use>
+                                        </svg>
+                                        <span class="post__filezise">{{ image_size }}</span>
+                                    </figcaption>
+                                    <a class="post__image-link" href="{{ image_path }}" target="_blank">
+                                        <img alt="{{ image_size }}" class="post__file-preview" src="{{ image_path }}">
                                     </a>
-                                    <svg class="icon js-post-findimg desktop" xmlns="http://www.w3.org/2000/svg">
-                                        <use xlink:href="#icon__findimg"></use>
-                                    </svg>
-                                    <svg class="icon js-post-saveimg desktop" xmlns="http://www.w3.org/2000/svg">
-                                        <use xlink:href="#icon__saveimg"></use>
-                                    </svg>
-                                    <span class="post__filezise">{{ image_size }}</span>
-                                </figcaption>
-                                <a class="post__image-link" href="{{ image_path }}" target="_blank">
-                                    <img alt="{{ image_size }}" class="post__file-preview" src="{{ image_path }}">
-                                </a>
-                            </figure>
+                                </figure>
+                            </div>
+
+                            <article class="post__message post__message_op" id="m{{ post_id }}">
+                                {{ post_text }}
+                            </article>
                         </div>
 
-                        <article class="post__message post__message_op" id="m{{ post_id }}">
-                            {{ post_text }}
-                        </article>
-                    </div>
-
-                    {% for comment in comments %}
-                    <div class="post post_type_reply" data-num="{{ comment.id }}" id="post-{{ comment.id }}">
-                        <div class="post__details" id="post-details-{{ comment.id }}">
+                        {% for comment in comments %}
+                        <div class="post post_type_reply" data-num="{{ comment.id }}" id="post-{{ comment.id }}">
+                            <div class="post__details" id="post-details-{{ comment.id }}">
                                 <span class="post__detailpart">
                                     <span class="post__anon">{{ comment.name }}</span>
                                 </span>
-                            <span class="post__detailpart">
+                                <span class="post__detailpart">
                                     <span class="post__time">{{ comment.date }}</span>
                                 </span>
-                            <span class="post__detailpart">
+                                <span class="post__detailpart">
                                     <a class="post__reflink" href="#" id="{{ comment.id }}">№</a>
-                                    <a class="js-post-reply-btn post__reflink" data-num="{{ comment.id }}" href="#">{{ comment.id }}</a>
+                                    <a class="js-post-reply-btn post__reflink" data-num="{{ comment.id }}" href="#">{{
+                                        comment.id }}</a>
                                 </span>
-                            <span class="post__detailpart">
-                                    <svg class="post__btn post__btn_type_menu icon desktop"
-                                         data-num="{{ comment.id }}" xmlns="http://www.w3.org/2000/svg">
+                                <span class="post__detailpart">
+                                    <svg class="post__btn post__btn_type_menu icon desktop" data-num="{{ comment.id }}"
+                                        xmlns="http://www.w3.org/2000/svg">
                                         <use xlink:href="#icon__addmenu"></use>
                                     </svg>
                                 </span>
+                            </div>
+
+                            <article class="post__message" id="m{{ comment.id }}">
+                                {{ comment.text|safe }}
+                            </article>
                         </div>
+                        {% endfor %}
 
-                        <article class="post__message" id="m{{ comment.id }}">
-                            {{ comment.text|safe }}
-                        </article>
                     </div>
-                    {% endfor %}
-
                 </div>
-            </div>
-        </main>
-    </header>
+            </main>
+        </header>
 
-    <footer class="footer">
-        <div class="footer__svgs">
-            <svg aria-hidden="true" class="iconsvg" style="display: none;"
-                 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-                <symbol id="icon__star" viewBox="0 0 48 48">
-                    <path
+        <footer class="footer">
+            <div class="footer__svgs">
+                <svg aria-hidden="true" class="iconsvg" style="display: none;" xmlns="http://www.w3.org/2000/svg"
+                    xmlns:xlink="http://www.w3.org/1999/xlink">
+                    <symbol id="icon__star" viewBox="0 0 48 48">
+                        <path
                             d="M9.01 0C6.53 0 3.26 0 1.5 1.5C0 3.26 0 6.52 0 9C0 12 0 36 0 39C0 41.48 0 44.74 1.5 46.5C3.26 48 6.53 48 9.01 48C12.01 48 36.01 48 39.01 48C41.48 48 44.74 48 46.5 46.5C48 44.74 48 41.48 48 39C48 36 48 12 48 9C48 6.52 48 3.26 46.5 1.5C44.74 0 41.48 0 39.01 0C36.01 0 12.01 0 9.01 0Z">
-                    </path>
-                    <path
+                        </path>
+                        <path
                             d="M28.02 18.06L37 19.43L30.5 26.09L32.03 35.5L24 31.06L15.97 35.5L17.5 26.09L11 19.43L19.98 18.06L24 9.5L28.02 18.06Z"
                             fill="#ececec"></path>
-                </symbol>
-                <symbol id="icon__hide" viewBox="0 0 48 48">
-                    <path
+                    </symbol>
+                    <symbol id="icon__hide" viewBox="0 0 48 48">
+                        <path
                             d="M9.01 0C6.53 0 3.26 0 1.5 1.5C0 3.26 0 6.52 0 9C0 12 0 36 0 39C0 41.48 0 44.74 1.5 46.5C3.26 48 6.53 48 9.01 48C12.01 48 36.01 48 39.01 48C41.48 48 44.74 48 46.5 46.5C48 44.74 48 41.48 48 39C48 36 48 12 48 9C48 6.52 48 3.26 46.5 1.5C44.74 0 41.48 0 39.01 0C36.01 0 12.01 0 9.01 0Z">
-                    </path>
-                    <path d="M28.67 24L37 32.33L32.33 37L24 28.67L15.67 37L11 32.33L19.33 24L11 15.67L15.67 11L24 19.33L32.33 11L37 15.67L28.67 24Z"
-                          fill="#ececec">
-                    </path>
-                </symbol>
-                <symbol id="icon__addmenu" viewBox="0 0 48 48">
-                    <path
+                        </path>
+                        <path
+                            d="M28.67 24L37 32.33L32.33 37L24 28.67L15.67 37L11 32.33L19.33 24L11 15.67L15.67 11L24 19.33L32.33 11L37 15.67L28.67 24Z"
+                            fill="#ececec">
+                        </path>
+                    </symbol>
+                    <symbol id="icon__addmenu" viewBox="0 0 48 48">
+                        <path
                             d="M9.01 0C6.53 0 3.26 0 1.5 1.5C0 3.26 0 6.52 0 9C0 12 0 36 0 39C0 41.48 0 44.74 1.5 46.5C3.26 48 6.53 48 9.01 48C12.01 48 36.01 48 39.01 48C41.48 48 44.74 48 46.5 46.5C48 44.74 48 41.48 48 39C48 36 48 12 48 9C48 6.52 48 3.26 46.5 1.5C44.74 0 41.48 0 39.01 0C36.01 0 12.01 0 9.01 0Z">
-                    </path>
-                    <path d="M26.17 31.15L14.08 38.34L14.06 24L14.05 9.66L26.15 16.82L38.25 23.97L26.17 31.15Z"
-                          fill="#ececec">
-                    </path>
-                </symbol>
-            </svg>
-        </div>
-    </footer>
-</div>
+                        </path>
+                        <path d="M26.17 31.15L14.08 38.34L14.06 24L14.05 9.66L26.15 16.82L38.25 23.97L26.17 31.15Z"
+                            fill="#ececec">
+                        </path>
+                    </symbol>
+                </svg>
+            </div>
+        </footer>
+    </div>
 </body>
 
 </html>

@@ -21,64 +21,66 @@ log = get_logger(__name__)
 
 class DownloadError(Exception):
     """Exception raised when image download fails"""
+
     pass
 
 
 class NhentaiService:
     """Service for nhentai operations"""
-    
+
     BASE_URL: str = "https://nhentai.net"
     # Track the last successful domain to optimize future requests
     last_successful_domain: str = None
-    
+
     @staticmethod
     async def get_blur_setting(chat_id: int, message: Message = None) -> bool:
         """Get nhentai_blur setting from peer_config"""
         from pyrogram.enums.chat_type import ChatType
-        
+
         # Always disable blur (return False) in private chats
         if message and message.chat.type == ChatType.PRIVATE:
             return False
 
         # Otherwise use config value
         return await get_chat_setting(chat_id, "nhentai_blur", True)
-    
+
     @classmethod
     async def download_image(cls, url: str, session: httpx.AsyncClient) -> io.BytesIO:
         """Download image from URL to BytesIO with fallback to alternative domains"""
         from src.plugins.nhentai.constants import NHENTAI_IMAGE_DOMAINS
-        
+
         original_url = url
         tried_domains = set()
-        
+
         # Extract the domain and path from the URL
         import re
-        match = re.match(r'https?://([^/]+)(/.+)', url)
+
+        match = re.match(r"https?://([^/]+)(/.+)", url)
         if not match:
             log.error(f"Invalid URL format: {url}")
             raise DownloadError(f"Invalid URL format: {url}")
-            
+
         domain, path = match.groups()
-        
+
         # Prioritize the last successful domain if available
         domains_to_try = []
         if cls.last_successful_domain:
             domains_to_try.append(cls.last_successful_domain)
-        
+
         # Then try the original domain if it's not the same as the last successful one
         if domain != cls.last_successful_domain:
             domains_to_try.append(domain)
-        
+
         # Add remaining domains
         domains_to_try.extend([d for d in NHENTAI_IMAGE_DOMAINS if d not in domains_to_try])
-        
+
         for current_domain in domains_to_try:
             if current_domain in tried_domains:
                 continue
-                
+
             tried_domains.add(current_domain)
             current_url = f"https://{current_domain}{path}"
-            
+
             try:
                 proxy_enabled = bool(session._transport._pool._proxy_url) if hasattr(session._transport, "_pool") and hasattr(session._transport._pool, "_proxy_url") else False
                 log.info("Downloading image", extra={"url": current_url, "proxy_enabled": proxy_enabled})
@@ -112,11 +114,11 @@ class NhentaiService:
                 log.error("Unexpected error while downloading image", extra={"url": current_url, "error": str(e), "error_type": type(e).__name__})
                 # Continue to next domain
                 continue
-        
+
         # If we get here, all domains failed
         log.error(f"All domains failed for image download: {original_url}")
         raise DownloadError(f"Failed to download image from all available domains. Original URL: {original_url}")
-    
+
     @staticmethod
     def blur_image(image: io.BytesIO) -> io.BytesIO:
         """Apply blur effect to image"""
@@ -126,12 +128,12 @@ class NhentaiService:
             blurred_img.save(output, format="JPEG")
             output.seek(0)
         return output
-    
+
     @staticmethod
     def generate_output_message(media: NhentaiGallery, chat_id: int, message: Message = None) -> Tuple[List[InputMediaPhoto], bool]:
         """Generate output message with media and check for blacklisted tags"""
         from pyrogram.enums.parse_mode import ParseMode
-        
+
         link = f"https://nhentai.net/g/{media.id}"
         caption = f"<b>№{media.id}</b> | <a href='{link}'><b>{media.title.pretty}</b></a>\n\n"
         caption += f"<b>Pages:</b> {media.num_pages}\n<b>Favorites:</b> {media.num_favorites}\n\n"
@@ -144,6 +146,7 @@ class NhentaiService:
                 caption += f"<b>{category.capitalize()}:</b> {', '.join(tags)}\n"
 
         from datetime import datetime
+
         timestamp_to_date = datetime.fromtimestamp(media.upload_date)
         caption += f"\n<b>Uploaded:</b> {timestamp_to_date.strftime('%Y-%m-%d')}"
 
@@ -155,7 +158,7 @@ class NhentaiService:
         album.extend([InputMediaPhoto(media.images.pages[min(total_pages - 1, max(1, round(total_pages * p / 100)))]) for p in [15, 30, 50, 70, 90] if total_pages >= len(album) + 1])
 
         return album, has_blacklisted_tag
-    
+
     @staticmethod
     async def send_media_group(client, chat_id: int, album: List[InputMediaPhoto], message: Message, use_proxy: bool = False, blur: bool = False) -> Optional[str]:
         """Send media group and return error message if any"""
@@ -214,7 +217,7 @@ class NhentaiService:
 
             log.error("Failed to send media group", extra={"error": error_msg, "album_size": len(album), "proxy_enabled": bool(use_proxy), "blur_enabled": blur})
             return f"Failed to send media group: {error_msg}"
-    
+
     @staticmethod
     def truncate_title(title: str, max_length: int = 40) -> str:
         """Truncate title to max length with ellipsis"""
@@ -223,7 +226,7 @@ class NhentaiService:
 
 class NhentaiAPI:
     """API client for nhentai.net"""
-    
+
     BASE_URL: str = "https://nhentai.net"
     PROXY_URL: Optional[str] = f"socks5://{os.getenv('PROXY_HOST')}:{os.getenv('PROXY_PORT')}" if os.getenv("USE_PROXY", "false").lower() == "true" else None
 
@@ -291,25 +294,25 @@ class NhentaiAPI:
     def parse_images(cls, data: dict) -> Images:
         """Construct image URLs (pages, cover, thumbnail) for the given gallery"""
         from src.plugins.nhentai.constants import NHENTAI_IMAGE_DOMAINS, NHENTAI_THUMB_DOMAINS
-        
+
         media_id = data["media_id"]
         # Use the last successful domain if available, otherwise use the first domain in the list
         image_domain = NhentaiService.last_successful_domain if NhentaiService.last_successful_domain else NHENTAI_IMAGE_DOMAINS[0]
-        
+
         # For thumbnails, try to use the corresponding thumb domain
-        if image_domain and image_domain.startswith('i'):
+        if image_domain and image_domain.startswith("i"):
             # Convert i.nhentai.net to t.nhentai.net, i2.nhentai.net to t2.nhentai.net, etc.
-            thumb_domain = 't' + image_domain[1:]
+            thumb_domain = "t" + image_domain[1:]
         else:
             thumb_domain = NHENTAI_THUMB_DOMAINS[0]
-        
+
         pages = [f"https://{image_domain}/galleries/{media_id}/{i + 1}.{NhentaiAPI.get_extension(page['t'])}" for i, page in enumerate(data["images"]["pages"])]
 
         # Use the appropriate format for cover and thumbnail
         # The format can be .jpg, .webp, or .webp.webp depending on the server
         cover_url = f"https://{thumb_domain}/galleries/{media_id}/cover.webp.webp"
         thumbnail_url = f"https://{thumb_domain}/galleries/{media_id}/thumb.webp.webp"
-        
+
         log.info(f"Images: {len(pages)} pages, cover: {cover_url}, thumbnail: {thumbnail_url}")
         return Images(pages=pages, cover=cover_url, thumbnail=thumbnail_url)
 
@@ -329,7 +332,7 @@ class NhentaiAPI:
 
 class CollageCreator:
     """Creates collages of nhentai thumbnails"""
-    
+
     def __init__(self, thumb_width=500, thumb_height=765, thumbnails_per_row=3, num_rows=4):
         self.thumb_width = thumb_width
         self.thumb_height = thumb_height
@@ -420,7 +423,7 @@ class CollageCreator:
                     img = Image.new("RGB", (self.thumb_width, self.thumb_height), (200, 200, 200))
                     img = self.draw_centered_text(img, "Error")
                     img = self.add_text_to_image(img, f"№ {post.id}")
-                elif hasattr(response, 'status_code') and response.status_code == 404:
+                elif hasattr(response, "status_code") and response.status_code == 404:
                     log.error(f"Error fetching thumbnail for post {post.id}: 404 Not Found")
                     img = Image.new("RGB", (self.thumb_width, self.thumb_height), (200, 200, 200))
                     img = self.draw_centered_text(img, "404")
@@ -463,7 +466,7 @@ class CollageCreator:
                     img = Image.new("RGB", (self.thumb_width, self.thumb_height), (200, 200, 200))
                     img = self.draw_centered_text(img, "Error")
                     img = self.add_text_to_image(img, f"№ {post.id}")
-                elif hasattr(response, 'status_code') and response.status_code == 404:
+                elif hasattr(response, "status_code") and response.status_code == 404:
                     log.error(f"Error fetching thumbnail for post {post.id}: 404 Not Found")
                     img = Image.new("RGB", (self.thumb_width, self.thumb_height), (200, 200, 200))
                     img = self.draw_centered_text(img, "404")

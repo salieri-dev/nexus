@@ -1002,7 +1002,7 @@ input[type=radio] {
     float: none
 }
 
-.post__images_type_single + .post__message {
+.post__images_type_single+.post__message {
     padding: 30px 16px 16px 0
 }
 
@@ -1450,8 +1450,7 @@ input[type=radio] {
     font-style: italic
 }
 
-.postform__mu_type_q {
-}
+.postform__mu_type_q {}
 
 .postform__mu_type_u {
     text-decoration: underline
@@ -1493,8 +1492,7 @@ input[type=radio] {
     text-align: center
 }
 
-.qr__body {
-}
+.qr__body {}
 
 .qr__footer {
     text-align: center;
@@ -1687,8 +1685,7 @@ input[type=radio] {
     background: var(--theme_default_postbg)
 }
 
-.bb__panels {
-}
+.bb__panels {}
 
 .bb__panel {
     border-bottom: 1px solid var(--theme_default_border);
@@ -1966,8 +1963,7 @@ input[type=radio] {
     height: 5px
 }
 
-.mp__input::-ms-track {
-}
+.mp__input::-ms-track {}
 
 .footer {
     flex: 1 100%;
@@ -1986,8 +1982,7 @@ input[type=radio] {
     padding: 16px
 }
 
-.footer__speed {
-}
+.footer__speed {}
 
 .mmm {
     display: flex;
@@ -3565,7 +3560,7 @@ a.ui-button:active,
         float: initial
     }
 
-    .post__images_type_single + .post__message {
+    .post__images_type_single+.post__message {
         padding: 30px 16px 16px
     }
 
@@ -3607,7 +3602,7 @@ a.ui-button:active,
     }
 
     .posts hr:last-of-type,
-    .thread-nav_mob + hr {
+    .thread-nav_mob+hr {
         margin: .5em auto !important
     }
 
@@ -3689,54 +3684,15 @@ a.ui-button:active,
     }
 }
 
-border:
-
-1
-px solid #ccc
-
-;
-background-color:
-var
-
-(
---theme_default_btnbg
-
-)
-;
-border:
-
-1
-px solid
-var
-
-(
---theme_default_btnborder
-
-)
-;
-user-select: none
-
-;
-background-repeat: repeat-x
-
-;
-color: #f60
-
-;
-color:
-var
-
-(
---theme_default_link
-
-)
-;
-display: inline-block
-
-!important
-;
+border: 1 px solid #ccc;
+background-color: var (--theme_default_btnbg);
+border: 1 px solid var (--theme_default_btnborder);
+user-select: none;
+background-repeat: repeat-x;
+color: #f60;
+color: var (--theme_default_link);
+display: inline-block !important;
 cursor: pointer
-
 }
 
 #js-mob-nav {
