@@ -25,30 +25,22 @@ class RateLimitRepository:
     async def initialize(self):
         """Initialize the rate limit collection with indexes."""
         # Create compound index on user_id and operation
-        await self.collection.create_index(
-            [("user_id", 1), ("operation", 1)],
-            unique=True
-        )
+        await self.collection.create_index([("user_id", 1), ("operation", 1)], unique=True)
         # Create TTL index to automatically remove old entries
         await self.collection.create_index(
             "timestamp",
-            expireAfterSeconds=86400  # 24 hours
+            expireAfterSeconds=86400,  # 24 hours
         )
 
-    async def check_rate_limit(
-            self,
-            user_id: int,
-            operation: str,
-            window_seconds: int
-    ) -> bool:
+    async def check_rate_limit(self, user_id: int, operation: str, window_seconds: int) -> bool:
         """
         Check if operation is allowed using thread-safe class-level cache.
-        
+
         Args:
             user_id: The user ID
             operation: The operation name
             window_seconds: Time window in seconds
-            
+
         Returns:
             bool: True if operation is allowed, False if rate limited
         """
@@ -67,11 +59,7 @@ class RateLimitRepository:
             # Update MongoDB asynchronously
             now = datetime.utcnow()
             try:
-                await self.collection.update_one(
-                    {"user_id": user_id, "operation": operation},
-                    {"$set": {"timestamp": now}},
-                    upsert=True
-                )
+                await self.collection.update_one({"user_id": user_id, "operation": operation}, {"$set": {"timestamp": now}}, upsert=True)
             except Exception as e:
                 logger.error("Failed to update rate limit in MongoDB", error=str(e))
 

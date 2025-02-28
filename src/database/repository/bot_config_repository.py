@@ -30,7 +30,7 @@ class BotConfigRepository:
         """Read content from a file."""
         try:
             if os.path.exists(file_path):
-                with open(file_path, 'r', encoding='utf-8') as file:
+                with open(file_path, "r", encoding="utf-8") as file:
                     return file.read()
             else:
                 logger.error(f"File not found: {file_path}")
@@ -63,11 +63,7 @@ class BotConfigRepository:
 
     async def update_config(self, config_id: str, updates: Dict) -> Dict:
         """Update configuration with new values."""
-        await self.collection.update_one(
-            {"config_id": config_id},
-            {"$set": updates},
-            upsert=True
-        )
+        await self.collection.update_one({"config_id": config_id}, {"$set": updates}, upsert=True)
 
         # Update cache
         if config_id in self._config_cache:
@@ -92,11 +88,11 @@ class BotConfigRepository:
         """
         Register a plugin's configuration with default values if it doesn't exist.
         This should be called by plugins during their initialization.
-        
+
         Args:
             plugin_id: Unique identifier for the plugin
             default_config: Default configuration values
-            
+
         Returns:
             The current configuration (either existing or newly created)
         """
@@ -117,10 +113,10 @@ class BotConfigRepository:
     async def get_plugin_config(self, plugin_id: str) -> Dict:
         """
         Get a plugin's configuration.
-        
+
         Args:
             plugin_id: Unique identifier for the plugin
-            
+
         Returns:
             The plugin's configuration
         """
@@ -129,11 +125,11 @@ class BotConfigRepository:
     async def update_plugin_config(self, plugin_id: str, updates: Dict) -> Dict:
         """
         Update a plugin's configuration.
-        
+
         Args:
             plugin_id: Unique identifier for the plugin
             updates: Configuration updates to apply
-            
+
         Returns:
             The updated configuration
         """
@@ -142,12 +138,12 @@ class BotConfigRepository:
     async def get_plugin_config_value(self, plugin_id: str, key: str, default: Any = None) -> Any:
         """
         Get a specific value from a plugin's configuration.
-        
+
         Args:
             plugin_id: Unique identifier for the plugin
             key: Configuration key to retrieve
             default: Default value if key doesn't exist
-            
+
         Returns:
             The configuration value or default
         """
@@ -157,12 +153,12 @@ class BotConfigRepository:
     async def set_plugin_config_value(self, plugin_id: str, key: str, value: Any) -> Dict:
         """
         Set a specific value in a plugin's configuration.
-        
+
         Args:
             plugin_id: Unique identifier for the plugin
             key: Configuration key to set
             value: Value to set
-            
+
         Returns:
             The updated configuration
         """
@@ -171,20 +167,16 @@ class BotConfigRepository:
     async def reset_plugin_config(self, plugin_id: str, default_config: Dict) -> Dict:
         """
         Reset a plugin's configuration to default values.
-        
+
         Args:
             plugin_id: Unique identifier for the plugin
             default_config: Default configuration values
-            
+
         Returns:
             The reset configuration
         """
         # Keep only the config_id and update with defaults
-        await self.collection.update_one(
-            {"config_id": plugin_id},
-            {"$set": default_config},
-            upsert=True
-        )
+        await self.collection.update_one({"config_id": plugin_id}, {"$set": default_config}, upsert=True)
 
         # Invalidate cache for this config
         self.invalidate_cache(plugin_id)

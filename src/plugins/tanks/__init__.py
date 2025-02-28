@@ -26,4 +26,4 @@ async def init_tanks():
 
 
 # Export the initialization function
-__all__ = ['init_tanks']
+__all__ = ["init_tanks"]

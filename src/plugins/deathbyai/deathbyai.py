@@ -1,4 +1,5 @@
 """Death by AI game command handlers"""
+
 import asyncio
 
 from pyrogram import Client, filters
@@ -31,40 +32,28 @@ async def is_user_authorized(client: Client, chat_id: int, user_id: int, game_in
     return member.status in [ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR]
 
 
-@command_handler(
-    commands=["deathbyai"],
-    description="Игра, где вы должны выжить против ИИ",
-    group="Игры"
-)
+@command_handler(commands=["deathbyai"], description="Игра, где вы должны выжить против ИИ", group="Игры")
 @Client.on_message(filters.command(["deathbyai"]), group=1)
 async def start_game_command(client: Client, message: Message):
     """Start a new Death by AI game"""
-    
+
     if message.chat.type == ChatType.PRIVATE:
         await message.reply_text("Игра не поддерживается в личных сообщениях")
         return
-    
-    
+
     try:
         # Send initial message
         status_msg = await message.reply_text(GAME_START, quote=True)
 
         # Start new game
-        game = await service.start_game(
-            repository=repository,
-            chat_id=message.chat.id,
-            message_id=status_msg.id,
-            initiator_id=message.from_user.id
-        )
+        game = await service.start_game(repository=repository, chat_id=message.chat.id, message_id=status_msg.id, initiator_id=message.from_user.id)
 
         if not game:
             await status_msg.edit_text(GAME_EXISTS)
             return
 
         # Create keyboard for ending game
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(END_GAME_BUTTON, callback_data="end_game")
-        ]])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(END_GAME_BUTTON, callback_data="end_game")]])
 
         # Send initial game announcement
         message_text, keyboard = service.format_game_message(game)
@@ -139,21 +128,11 @@ async def handle_strategy(client: Client, message: Message):
     """Handle strategy submissions"""
     try:
         # Validate reply is to game message
-        if not await service.validate_game_message(
-                repository=repository,
-                message_id=message.reply_to_message.id,
-                reply_message_id=message.reply_to_message.id
-        ):
+        if not await service.validate_game_message(repository=repository, message_id=message.reply_to_message.id, reply_message_id=message.reply_to_message.id):
             return
 
         # Submit strategy
-        success, response = await service.submit_strategy(
-            repository=repository,
-            chat_id=message.chat.id,
-            user_id=message.from_user.id,
-            username=message.from_user.mention(),
-            strategy=message.text
-        )
+        success, response = await service.submit_strategy(repository=repository, chat_id=message.chat.id, user_id=message.from_user.id, username=message.from_user.mention(), strategy=message.text)
 
         if success:
             try:
@@ -164,10 +143,7 @@ async def handle_strategy(client: Client, message: Message):
                 game = await repository.get_game_by_message(message.reply_to_message.id)
                 if game:
                     message_text, keyboard = service.format_game_message(game)
-                    await message.reply_to_message.edit_text(
-                        message_text,
-                        reply_markup=keyboard
-                    )
+                    await message.reply_to_message.edit_text(message_text, reply_markup=keyboard)
             except Exception as e:
                 log.error("Failed to delete messages or update game message", error=str(e))
 

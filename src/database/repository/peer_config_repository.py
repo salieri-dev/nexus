@@ -6,6 +6,7 @@ from src.config.framework import PeerConfigModel
 
 logger = structlog.get_logger(__name__)
 
+
 class PeerConfigRepository:
     """Enhanced repository for handling peer-specific configurations."""
 
@@ -22,36 +23,29 @@ class PeerConfigRepository:
         """
         # Get all peers
         all_peers = await self.collection.find({}).to_list(length=None)
-        
+
         # For each peer, check for missing parameters and add defaults
         for peer_doc in all_peers:
             chat_id = peer_doc.get("chat_id")
             if not chat_id:
                 continue
-                
+
             updates = {}
             # Check each registered parameter
             for param_name, param_info in PeerConfigModel.param_registry.items():
                 if param_name not in peer_doc:
                     # Parameter doesn't exist for this peer, add with default
                     updates[param_name] = param_info.default
-            
+
             if updates:
                 # Update the peer with new parameters
-                await self.collection.update_one(
-                    {"chat_id": chat_id},
-                    {"$set": updates}
-                )
-                logger.info(
-                    "Initialized new parameters for peer",
-                    chat_id=chat_id,
-                    parameters=list(updates.keys())
-                )
-                
+                await self.collection.update_one({"chat_id": chat_id}, {"$set": updates})
+                logger.info("Initialized new parameters for peer", chat_id=chat_id, parameters=list(updates.keys()))
+
                 # Update cache if needed
                 if chat_id in self._config_cache:
                     self._config_cache[chat_id].update(updates)
-        
+
         logger.info("Completed parameter initialization for all peers")
 
     async def get_peer_config(self, chat_id: int) -> Dict:
@@ -69,10 +63,7 @@ class PeerConfigRepository:
 
         if not config:
             # Create new config with defaults from registry
-            default_values = {
-                field: info.default
-                for field, info in PeerConfigModel.param_registry.items()
-            }
+            default_values = {field: info.default for field, info in PeerConfigModel.param_registry.items()}
             config = {"chat_id": chat_id, **default_values}
             await self.collection.insert_one(config)
             logger.info(f"Created new configuration for chat {chat_id}")
@@ -83,18 +74,11 @@ class PeerConfigRepository:
                 if param_name not in config:
                     updates[param_name] = param_info.default
                     config[param_name] = param_info.default
-            
+
             if updates:
                 # Update with missing parameters
-                await self.collection.update_one(
-                    {"chat_id": chat_id},
-                    {"$set": updates}
-                )
-                logger.info(
-                    "Added missing parameters to config",
-                    chat_id=chat_id,
-                    parameters=list(updates.keys())
-                )
+                await self.collection.update_one({"chat_id": chat_id}, {"$set": updates})
+                logger.info("Added missing parameters to config", chat_id=chat_id, parameters=list(updates.keys()))
 
         # Cache the config
         self._config_cache[chat_id] = config
@@ -107,7 +91,7 @@ class PeerConfigRepository:
         """
         # Get current config to merge with updates
         current_config = await self.get_peer_config(chat_id)
-        
+
         # Validate updates using our custom validation method
         valid_updates = {}
         for key, value in updates.items():
@@ -117,28 +101,20 @@ class PeerConfigRepository:
                 if is_valid:
                     valid_updates[key] = validated_value
                 else:
-                    logger.error(
-                        f"Validation error for parameter {key}",
-                        chat_id=chat_id,
-                        value=value
-                    )
-        
+                    logger.error(f"Validation error for parameter {key}", chat_id=chat_id, value=value)
+
         if not valid_updates:
             return current_config
-        
+
         # Update database
-        await self.collection.update_one(
-            {"chat_id": chat_id},
-            {"$set": valid_updates},
-            upsert=True
-        )
-        
+        await self.collection.update_one({"chat_id": chat_id}, {"$set": valid_updates}, upsert=True)
+
         # Update cache
         if chat_id in self._config_cache:
             self._config_cache[chat_id].update(valid_updates)
         else:
             await self.get_peer_config(chat_id)  # This will cache the config
-        
+
         return self._config_cache[chat_id]
 
     def invalidate_cache(self, chat_id: int = None):

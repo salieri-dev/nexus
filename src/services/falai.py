@@ -10,13 +10,13 @@ log = get_logger(__name__)
 async def upload_file(file_path: str) -> str:
     """
     Upload a file to fal-ai.
-    
+
     Args:
         file_path: Path to the file to upload
-        
+
     Returns:
         URL of the uploaded file
-        
+
     Raises:
         FileNotFoundError: If the file doesn't exist
     """
@@ -30,11 +30,11 @@ async def upload_file(file_path: str) -> str:
 async def transcribe_audio(file_path: str, language: str = "ru") -> Dict[str, Any]:
     """
     Transcribe an audio file using fal-ai/wizper model.
-    
+
     Args:
         file_path: Path to the audio file
         language: Language of the audio (default: "ru")
-        
+
     Returns:
         Dictionary containing transcription result
     """
@@ -42,10 +42,7 @@ async def transcribe_audio(file_path: str, language: str = "ru") -> Dict[str, An
         url = await upload_file(file_path)
 
         log.info("Submitting transcription job")
-        handler = await fal_client.submit_async(
-            "fal-ai/wizper",
-            arguments={"audio_url": url, "task": "transcribe", "language": language}
-        )
+        handler = await fal_client.submit_async("fal-ai/wizper", arguments={"audio_url": url, "task": "transcribe", "language": language})
 
         log.info("Waiting for transcription result")
         result = await handler.get()
@@ -67,18 +64,15 @@ async def transcribe_audio(file_path: str, language: str = "ru") -> Dict[str, An
 async def generate_image(model_name: str, payload: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Generate an image using specified fal-ai model.
-    
+
     Args:
         model_name: Name of the fal-ai model to use
         payload: Complete payload for image generation
-    
+
     Yields:
         Dictionary containing event information during generation
     """
-    handler = await fal_client.submit_async(
-        model_name,
-        arguments=payload
-    )
+    handler = await fal_client.submit_async(model_name, arguments=payload)
 
     async for event in handler.iter_events(with_logs=True):
         yield event
@@ -90,18 +84,15 @@ async def generate_image(model_name: str, payload: Dict[str, Any]) -> AsyncGener
 async def generate_image_sync(model_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Generate an image synchronously using specified fal-ai model.
-    
+
     Args:
         model_name: Name of the fal-ai model to use
         payload: Complete payload for image generation
-    
+
     Returns:
         Dictionary containing the final generation result
     """
-    handler = await fal_client.submit_async(
-        model_name,
-        arguments=payload
-    )
+    handler = await fal_client.submit_async(model_name, arguments=payload)
 
     return await handler.get()
 
@@ -109,11 +100,11 @@ async def generate_image_sync(model_name: str, payload: Dict[str, Any]) -> Dict[
 async def upscale_image(image_path: str, upscale_factor: int = 2) -> Dict[str, Any]:
     """
     Upscale an image using fal-ai/clarity-upscaler model.
-    
+
     Args:
         image_path: Path to the image file
         upscale_factor: Factor by which to upscale the image (default: 2)
-        
+
     Returns:
         Dictionary containing:
             - success: bool indicating if upscaling was successful
@@ -134,30 +125,15 @@ async def upscale_image(image_path: str, upscale_factor: int = 2) -> Dict[str, A
         }
 
         log.info("Submitting upscale job")
-        result = await fal_client.submit_async(
-            "fal-ai/clarity-upscaler",
-            arguments=model_params
-        )
+        result = await fal_client.submit_async("fal-ai/clarity-upscaler", arguments=model_params)
 
         final_result = await result.get()
 
         if not final_result or not isinstance(final_result, dict) or "image" not in final_result:
             log.error("Invalid response structure from fal.ai API")
-            return {
-                "success": False,
-                "error": "Invalid response from upscaling service"
-            }
+            return {"success": False, "error": "Invalid response from upscaling service"}
 
-        return {
-            "success": True,
-            "image": final_result["image"],
-            "model_params": {
-                **model_params,
-                "model": "fal-ai/clarity-upscaler",
-                "seed": final_result.get("seed"),
-                "timings": final_result.get("timings")
-            }
-        }
+        return {"success": True, "image": final_result["image"], "model_params": {**model_params, "model": "fal-ai/clarity-upscaler", "seed": final_result.get("seed"), "timings": final_result.get("timings")}}
 
     except FileNotFoundError as e:
         log.error(f"File error: {str(e)}")

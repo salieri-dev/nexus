@@ -6,12 +6,13 @@ from typing import List
 class Title:
     """
     Represents the title of a gallery in different languages.
-    
+
     Attributes:
         english: The English title
         japanese: The Japanese title
         pretty: A formatted/cleaned version of the title
     """
+
     english: str
     japanese: str
     pretty: str
@@ -21,7 +22,7 @@ class Title:
 class Tag:
     """
     Represents a tag associated with a gallery.
-    
+
     Attributes:
         id: Unique identifier for the tag
         type: Category of the tag (e.g., "artist", "language", "tag")
@@ -29,6 +30,7 @@ class Tag:
         url: URL path for the tag on nhentai
         count: Number of galleries with this tag
     """
+
     id: int
     type: str
     name: str
@@ -40,12 +42,13 @@ class Tag:
 class Images:
     """
     Contains URLs for all images associated with a gallery.
-    
+
     Attributes:
         pages: List of URLs for all pages in the gallery
         cover: URL of the gallery cover image
         thumbnail: URL of the gallery thumbnail image
     """
+
     pages: List[str]
     cover: str
     thumbnail: str
@@ -55,7 +58,7 @@ class Images:
 class NhentaiGallery:
     """
     Represents a complete nhentai gallery with all its metadata.
-    
+
     Attributes:
         id: Unique identifier for the gallery
         media_id: Internal media ID used in image URLs
@@ -67,6 +70,7 @@ class NhentaiGallery:
         num_pages: Total number of pages in the gallery
         num_favorites: Number of times the gallery has been favorited
     """
+
     id: int
     media_id: int
     title: Title

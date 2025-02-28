@@ -47,7 +47,7 @@ async def get_blur_setting(chat_id: int, message: Message = None) -> bool:
     # Always disable blur (return False) in private chats
     if message and message.chat.type == ChatType.PRIVATE:
         return False
-        
+
     # Otherwise use config value
     return await get_chat_setting(chat_id, "nhentai_blur", True)
 
@@ -107,10 +107,10 @@ def generate_output_message(media: NhentaiGallery, chat_id: int, message: Messag
 
     timestamp_to_date = datetime.fromtimestamp(media.upload_date)
     caption += f"\n<b>Uploaded:</b> {timestamp_to_date.strftime('%Y-%m-%d')}"
-    
+
     # Check if any blacklisted tags are present
     has_blacklisted_tag = any(tag in BLACKLIST_TAGS for tag in tag_dict["tag"])
-    
+
     album = [InputMediaPhoto(media.images.pages[0], caption=caption, parse_mode=ParseMode.HTML)]
     total_pages = len(media.images.pages)
     album.extend([InputMediaPhoto(media.images.pages[min(total_pages - 1, max(1, round(total_pages * p / 100)))]) for p in [15, 30, 50, 70, 90] if total_pages >= len(album) + 1])
@@ -123,7 +123,7 @@ async def send_media_group(client: Client, chat_id: int, album: List[InputMediaP
     try:
         # Check if blur should be applied based on settings
         should_blur = blur and await get_blur_setting(chat_id, message)
-        
+
         if not should_blur:
             await message.reply_media_group(media=album, quote=True)
         else:
@@ -178,17 +178,13 @@ async def send_media_group(client: Client, chat_id: int, album: List[InputMediaP
 
 
 @Client.on_message(filters.command(["nhentai"], prefixes="/") & ~filters.channel, group=1)
-@requires_setting('nsfw')
+@requires_setting("nsfw")
 @command_handler(commands=["nhentai"], arguments="[необяз. поисковый запрос]", description="Случайная додзинся или поиск по nhentai", group="NSFW")
-@rate_limit(
-    operation="nhentai_handler",
-    window_seconds=15,
-    on_rate_limited=lambda message: message.reply("🕒 Подождите 15 секунд перед следующим запросом!")
-)
+@rate_limit(operation="nhentai_handler", window_seconds=15, on_rate_limited=lambda message: message.reply("🕒 Подождите 15 секунд перед следующим запросом!"))
 async def nhentai_handler(client: Client, message: Message):
     """Handler for /nhentai command"""
     fetcher = NhentaiAPI()
-    
+
     if len(message.command) <= 1:
         try:
             random_number = random.randint(1, 531925)
@@ -270,12 +266,7 @@ async def send_search_results(client: Client, message, query: str, page: int):
 
         # Check if the message is from a callback query or a new command
         if isinstance(message, Message):
-            await message.reply_photo(
-                photo=collage,
-                caption=caption,
-                reply_markup=keyboard,
-                quote=True
-            )
+            await message.reply_photo(photo=collage, caption=caption, reply_markup=keyboard, quote=True)
         else:  # It's a CallbackQuery
             await client.send_message(chat_id=message.chat.id, text=caption, reply_markup=keyboard)
 
@@ -292,11 +283,7 @@ async def send_search_results(client: Client, message, query: str, page: int):
 
 
 @Client.on_callback_query(filters.regex(r"^nhentai:(\d+)$"))
-@rate_limit(
-    operation="nhentai_callback",
-    window_seconds=30,
-    on_rate_limited=lambda callback_query: callback_query.answer("Please wait before requesting another gallery!", show_alert=True)
-)
+@rate_limit(operation="nhentai_callback", window_seconds=30, on_rate_limited=lambda callback_query: callback_query.answer("Please wait before requesting another gallery!", show_alert=True))
 async def nhentai_callback_handler(client: Client, callback_query: CallbackQuery):
     fetcher = NhentaiAPI()
     gallery_id = int(callback_query.data.split(":")[1])
@@ -313,12 +300,12 @@ async def nhentai_callback_handler(client: Client, callback_query: CallbackQuery
 
         # First try sending directly with URLs
         error = await send_media_group(client, callback_query.message.chat.id, album, callback_query.message, use_proxy=fetcher.use_proxy, blur=has_blacklisted_tag)
-        
+
         if error and "WEBPAGE_CURL_FAILED" in error:
             log.warning("Failed to send images by URL. Downloading and resending...")
-            
+
             client_config = {"timeout": httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0), "proxy": PROXY_URL if fetcher.use_proxy else None, "follow_redirects": True}
-            
+
             async with httpx.AsyncClient(**client_config) as session:
                 new_album = []
                 for i, media_item in enumerate(album):
@@ -390,11 +377,7 @@ async def nhentai_url_handler(client: Client, message: Message):
 
 
 @Client.on_callback_query(filters.regex(r"^nhentai_page\|(.+)\|(\d+)$"))
-@rate_limit(
-    operation="nhentai_page",
-    window_seconds=30,
-    on_rate_limited=lambda callback_query: callback_query.answer("Please wait before changing pages!", show_alert=True)
-)
+@rate_limit(operation="nhentai_page", window_seconds=30, on_rate_limited=lambda callback_query: callback_query.answer("Please wait before changing pages!", show_alert=True))
 async def nhentai_page_callback_handler(client: Client, callback_query: CallbackQuery):
     try:
         _, query, page = callback_query.data.split("|")

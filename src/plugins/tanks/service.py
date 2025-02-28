@@ -47,10 +47,7 @@ class TankService:
             "tags": tank.get("tags", "").split(","),
             "regions": regions,
             "original_id": tank.get("original_id"),
-            "image_url": TANK_IMAGE_URL.format(
-                country=tank.get("nation", "unknown").lower(),
-                tank_id=tank["id"]
-            )
+            "image_url": TANK_IMAGE_URL.format(country=tank.get("nation", "unknown").lower(), tank_id=tank["id"]),
         }
 
     async def clear_tanks(self):
@@ -65,10 +62,10 @@ class TankService:
     async def sync_tanks(self, clear_existing: bool = True) -> int:
         """
         Fetch tanks from API and sync to database.
-        
+
         Args:
             clear_existing: If True, clear all existing tanks before syncing
-        
+
         Returns:
             int: Number of tanks synced
         """
@@ -81,10 +78,7 @@ class TankService:
             tanks_data = await self.fetch_tanks()
 
             # Format tank data
-            formatted_tanks = [
-                self.format_tank_data(tank)
-                for tank in tanks_data
-            ]
+            formatted_tanks = [self.format_tank_data(tank) for tank in tanks_data]
 
             # Save each tank to repository
             count = 0
@@ -93,11 +87,7 @@ class TankService:
                     await self.repository.upsert_tank(tank)
                     count += 1
                 except Exception as e:
-                    log.error(
-                        "Failed to save tank",
-                        tank_id=tank["tank_id"],
-                        error=str(e)
-                    )
+                    log.error("Failed to save tank", tank_id=tank["tank_id"], error=str(e))
 
             log.info(f"Successfully synced {count} tanks")
             return count

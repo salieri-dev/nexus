@@ -28,9 +28,9 @@ def setup_structlog(json_logs: bool = False, log_level: str = "INFO", log_file: 
 
     structlog.configure(
         processors=shared_processors
-                   + [
-                       structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
-                   ],
+        + [
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
@@ -45,9 +45,9 @@ def setup_structlog(json_logs: bool = False, log_level: str = "INFO", log_file: 
 
     json_formatter = structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=shared_processors
-                          + [
-                              structlog.processors.format_exc_info,
-                          ],
+        + [
+            structlog.processors.format_exc_info,
+        ],
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             structlog.processors.JSONRenderer(),

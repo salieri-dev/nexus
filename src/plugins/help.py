@@ -1,4 +1,5 @@
 """Dynamic help command handler"""
+
 from functools import wraps
 from typing import Dict, List
 
@@ -14,7 +15,7 @@ command_help: Dict[str, Dict] = {}
 
 def command_handler(commands: List[str], description: str, arguments: str = None, group: str = "Общие"):
     """Decorator to register command help information.
-    
+
     Args:
         commands: List of command names (without /)
         description: Command description
@@ -25,11 +26,7 @@ def command_handler(commands: List[str], description: str, arguments: str = None
     def decorator(func):
         # Register help info for each command
         for cmd in commands:
-            command_help[cmd] = {
-                'description': description,
-                'arguments': arguments,
-                'group': group
-            }
+            command_help[cmd] = {"description": description, "arguments": arguments, "group": group}
 
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -50,34 +47,21 @@ async def help_handler(client: Client, message: Message):
         for cmd, info in command_help.items():
             key = f"{info['group']}:{info['description']}"
             if key not in handlers:
-                handlers[key] = {
-                    'commands': [],
-                    'description': info['description'],
-                    'arguments': info['arguments'],
-                    'group': info['group']
-                }
-            handlers[key]['commands'].append(cmd)
+                handlers[key] = {"commands": [], "description": info["description"], "arguments": info["arguments"], "group": info["group"]}
+            handlers[key]["commands"].append(cmd)
 
         # Define emoji mapping for groups
-        group_emojis = {
-            'Утилиты': '📎',
-            'Игры': '🎮',
-            'NSFW': '🔞',
-            'Мемы': '🤪',
-            'Изображения': '🖼️',
-            'сглыпа': '✍️',
-            'Рандом': '🎲'
-        }
+        group_emojis = {"Утилиты": "📎", "Игры": "🎮", "NSFW": "🔞", "Мемы": "🤪", "Изображения": "🖼️", "сглыпа": "✍️", "Рандом": "🎲"}
 
         # Group handlers by category
         groups: Dict[str, List[Dict]] = {}
         for handler in handlers.values():
-            group = handler['group']
+            group = handler["group"]
             if group not in groups:
                 groups[group] = []
 
             # Sort commands for consistent output
-            handler['commands'].sort()
+            handler["commands"].sort()
             groups[group].append(handler)
 
         # Build help message
@@ -85,48 +69,44 @@ async def help_handler(client: Client, message: Message):
 
         # Add command sections
         for group, handlers in sorted(groups.items()):
-            emoji = group_emojis.get(group, '🔹')
+            emoji = group_emojis.get(group, "🔹")
             help_text.append(f"\n{emoji} {group}:")
 
-            for handler in sorted(handlers, key=lambda x: x['commands'][0]):
+            for handler in sorted(handlers, key=lambda x: x["commands"][0]):
                 # Get all commands for this handler
-                cmd_list = [f"/{cmd}" for cmd in handler['commands']]
-                commands = ', '.join(cmd_list)
-                
+                cmd_list = [f"/{cmd}" for cmd in handler["commands"]]
+                commands = ", ".join(cmd_list)
+
                 # Add arguments if available
                 args_text = ""
-                if handler.get('arguments'):
+                if handler.get("arguments"):
                     # Handle both string and list arguments
-                    if isinstance(handler['arguments'], list):
+                    if isinstance(handler["arguments"], list):
                         # Join the list but preserve the original format
                         args_text = f" __{', '.join(handler['arguments'])}__"
                     else:
                         args_text = f" __{handler['arguments']}__"
-                
+
                 # Add NSFW emoji if in NSFW group
                 nsfw_mark = " 🔞" if group == "NSFW" else ""
                 command_text = f"• {commands}{args_text} — {handler['description']}{nsfw_mark}"
-                
+
                 help_text.append(command_text)
 
         # Add passive functionality section in blockquote
-        help_text.extend([
-            "\n**Пассивный функционал:**",
-            "• Скачивает рилзы из Instagram",
-            "• Переводит войсы в текст\n",
-            ">Вы можете включить суммаризацию чата, отключить расшифровку голосовых и многое другое в чатах через команду /config!\n"
-            "\n>Команды отмеченные 🔞 могут быть использованы в групповых чатах только если в настройках разрешен соответствующий контент. "
-            "Бот находится в стадии бета-тестирования, могут быть баги и ошибки. В случае предложений или ошибок, контакт для связи: @not_salieri"
-        ])
-
-        await message.reply_text(
-            "\n".join(help_text),
-            quote=True
+        help_text.extend(
+            [
+                "\n**Пассивный функционал:**",
+                "• Скачивает рилзы из Instagram",
+                "• Переводит войсы в текст\n",
+                ">Вы можете включить суммаризацию чата, отключить расшифровку голосовых и многое другое в чатах через команду /config!\n"
+                "\n>Команды отмеченные 🔞 могут быть использованы в групповых чатах только если в настройках разрешен соответствующий контент. "
+                "Бот находится в стадии бета-тестирования, могут быть баги и ошибки. В случае предложений или ошибок, контакт для связи: @not_salieri",
+            ]
         )
+
+        await message.reply_text("\n".join(help_text), quote=True)
 
     except Exception as e:
         log.error("Error handling help command", error=str(e))
-        await message.reply_text(
-            "❌ Произошла ошибка при получении списка команд",
-            quote=True
-        )
+        await message.reply_text("❌ Произошла ошибка при получении списка команд", quote=True)

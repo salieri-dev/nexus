@@ -7,26 +7,28 @@ from pyrogram.types import Message
 
 log = get_logger(__name__)
 
+
 def is_developer(user_id: int) -> bool:
     """
     Check if the user is the owner of the bot
-    
+
     Args:
         user_id (int): The user ID to check
-        
+
     Returns:
         bool: True if the user is the owner, False otherwise
     """
-    owner_id = os.getenv('OWNER_ID')
+    owner_id = os.getenv("OWNER_ID")
     if not owner_id:
         log.warning("OWNER_ID environment variable is not set")
         return False
-    
+
     try:
         return int(owner_id) == user_id
     except ValueError:
         log.error("OWNER_ID environment variable is not a valid integer")
         return False
+
 
 async def get_user_mention(user) -> str:
     """Get user mention"""
@@ -70,10 +72,10 @@ async def get_photo(message: Message) -> Union[Tuple[BytesIO, bool], Tuple[None,
 def is_private_chat(message: Message) -> bool:
     """
     Check if the message is from a private chat
-    
+
     Args:
         message: The message to check
-        
+
     Returns:
         bool: True if the chat is private, False otherwise
     """

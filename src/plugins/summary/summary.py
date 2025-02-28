@@ -128,10 +128,10 @@ async def summary_stats_handler(client: Client, message: Message):
 async def summary_history_handler(client: Client, message: Message):
     """Handle /summary_history command to show recent summaries for the chat"""
     # Only allow in groups/supergroups
-    
+
     if not is_developer(message.from_user.id):
         return
-    
+
     if is_private_chat(message):
         await message.reply_text(text="❌ Эта команда доступна только в групповых чатах.", quote=True)
         return

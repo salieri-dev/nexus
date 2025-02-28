@@ -73,10 +73,7 @@ class InstagramMediaFetcher:
             return
 
         proxy_url = f"socks5://{self.credentials.proxy.host}:{self.credentials.proxy.port}"
-        client_kwargs = {
-            "proxy": proxy_url,
-            "timeout": httpx.Timeout(10.0, connect=5.0)
-        }
+        client_kwargs = {"proxy": proxy_url, "timeout": httpx.Timeout(10.0, connect=5.0)}
 
         try:
             async with httpx.AsyncClient(**client_kwargs) as client:
@@ -175,10 +172,7 @@ class InstagramMediaFetcher:
             return None
 
         # Validate candidate structure
-        valid_candidates = [
-            c for c in candidates
-            if isinstance(c, dict) and "width" in c and "height" in c and "url" in c
-        ]
+        valid_candidates = [c for c in candidates if isinstance(c, dict) and "width" in c and "height" in c and "url" in c]
 
         if not valid_candidates:
             logger.warning("No valid candidates found with required fields (width, height, url)")
@@ -286,7 +280,7 @@ class InstagramMediaFetcher:
         client_kwargs = {
             "headers": self.headers,
             "cookies": self.cookie_jar,
-            "timeout": httpx.Timeout(60.0, connect=15.0)  # Increased timeout
+            "timeout": httpx.Timeout(60.0, connect=15.0),  # Increased timeout
         }
 
         # Add proxy configuration if enabled

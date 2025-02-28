@@ -17,35 +17,13 @@ TANK_NOT_FOUND_MESSAGE = "❌ Увы, ничего не нашлось"
 GENERAL_ERROR_MESSAGE = "❌ Произошла ошибка при обработке запроса. Повторите попытку позже."
 
 # Map of nations to their proper display names
-NATIONS = {
-    "china": "Китай",
-    "czech": "Чехословакия",
-    "france": "Франция",
-    "germany": "Германия",
-    "italy": "Италия",
-    "japan": "Япония",
-    "poland": "Польша",
-    "sweden": "Швеция",
-    "uk": "Великобритания",
-    "usa": "США",
-    "ussr": "СССР"
-}
+NATIONS = {"china": "Китай", "czech": "Чехословакия", "france": "Франция", "germany": "Германия", "italy": "Италия", "japan": "Япония", "poland": "Польша", "sweden": "Швеция", "uk": "Великобритания", "usa": "США", "ussr": "СССР"}
 
 # Map of tank types to display names
-TANK_TYPES = {
-    "heavy": "Тяжелый танк",
-    "light": "Легкий танк",
-    "medium": "Средний танк",
-    "spg": "Артиллерия 🌈",
-    "td": "ПТ-САУ"
-}
+TANK_TYPES = {"heavy": "Тяжелый танк", "light": "Легкий танк", "medium": "Средний танк", "spg": "Артиллерия 🌈", "td": "ПТ-САУ"}
 
-@command_handler(
-    commands=["tanks"],
-    description="Получить танк из World of Tanks",
-    arguments="[уровень|название]",
-    group="Игры"
-)
+
+@command_handler(commands=["tanks"], description="Получить танк из World of Tanks", arguments="[уровень|название]", group="Игры")
 @Client.on_message(filters.command(["tanks"]), group=1)
 async def retrieve_tanks(client: Client, message: Message):
     """Handle /tanks command with various options:
@@ -116,14 +94,7 @@ async def format_tank_response(message: Message, tank: Dict) -> None:
         price_display.append(f"{gold_price:,} 🪙")
     price_str = " или ".join(price_display) if price_display else "Нет в продаже"
 
-    response = (
-        f"**{tank['name']}**\n\n"
-        f"🎯 **Тип:** {tank_type}\n"
-        f"🌍 **Нация:** {nation}\n"
-        f"📊 **Уровень:** {tank.get('tier', 'Неизвестно')}\n"
-        f"💳 **Стоимость:** {price_str}\n"
-        f"🏪 **Доступность:** {'Недоступен в магазине' if tank.get('not_in_shop') else 'Доступен в магазине'}\n"
-    )
+    response = f"**{tank['name']}**\n\n🎯 **Тип:** {tank_type}\n🌍 **Нация:** {nation}\n📊 **Уровень:** {tank.get('tier', 'Неизвестно')}\n💳 **Стоимость:** {price_str}\n🏪 **Доступность:** {'Недоступен в магазине' if tank.get('not_in_shop') else 'Доступен в магазине'}\n"
 
     if tank.get("short_name") and tank["short_name"] != tank["name"]:
         response = f"{response}\n📝 **Краткое название:** {tank['short_name']}"
@@ -131,11 +102,6 @@ async def format_tank_response(message: Message, tank: Dict) -> None:
     # Send response with tank image if available
     image_url = tank.get("image_url")
     if image_url:
-        await message.reply_photo(
-            image_url,
-            caption=response
-        )
+        await message.reply_photo(image_url, caption=response)
     else:
-        await message.reply(
-            response
-        )
+        await message.reply(response)

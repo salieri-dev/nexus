@@ -10,16 +10,7 @@ import pandas as pd
 import seaborn as sns
 from scipy.signal import find_peaks
 
-from .constants import (
-    MIN_MESSAGES,
-    MIN_TEXT_LENGTH,
-    MAX_TEXT_LENGTH,
-    SENTIMENT_THRESHOLD,
-    TOPIC_THRESHOLD,
-    GRAPH_WINDOWS,
-    GRAPH_COLORS,
-    MESSAGES
-)
+from .constants import MIN_MESSAGES, MIN_TEXT_LENGTH, MAX_TEXT_LENGTH, SENTIMENT_THRESHOLD, TOPIC_THRESHOLD, GRAPH_WINDOWS, GRAPH_COLORS, MESSAGES
 
 
 class SentimentService:
@@ -27,20 +18,14 @@ class SentimentService:
     async def create_sentiment_graph(messages: List[Dict]) -> io.BytesIO:
         """Create an enhanced time-based sentiment analysis graph"""
         # Convert messages to DataFrame
-        df = pd.DataFrame([{
-            "datetime": datetime.fromisoformat(msg["date"]),
-            "positive": msg.sentiment.positive,
-            "neutral": msg.sentiment.neutral,
-            "negative": msg.sentiment.negative
-        } for msg in messages if msg.sentiment])
+        df = pd.DataFrame([{"datetime": datetime.fromisoformat(msg["date"]), "positive": msg.sentiment.positive, "neutral": msg.sentiment.neutral, "negative": msg.sentiment.negative} for msg in messages if msg.sentiment])
 
         # Sort by datetime and set index
         df = df.sort_values(by="datetime")
         df = df.set_index("datetime")
 
         # Calculate rolling averages
-        rolling_avgs = {window: df.rolling(window=period).mean() 
-                       for window, period in GRAPH_WINDOWS.items()}
+        rolling_avgs = {window: df.rolling(window=period).mean() for window, period in GRAPH_WINDOWS.items()}
 
         # Calculate volatility
         volatility = df.rolling(window="24h").std()
@@ -49,13 +34,8 @@ class SentimentService:
         peaks = {}
         for sentiment in ["positive", "negative"]:
             values = rolling_avgs["24h"][sentiment].fillna(0)
-            peak_indices, _ = find_peaks(values.values,
-                                       prominence=0.1,
-                                       distance=24)
-            peaks[sentiment] = {
-                'timestamps': values.index[peak_indices],
-                'values': values.iloc[peak_indices]
-            }
+            peak_indices, _ = find_peaks(values.values, prominence=0.1, distance=24)
+            peaks[sentiment] = {"timestamps": values.index[peak_indices], "values": values.iloc[peak_indices]}
 
         # Create plot
         fig = plt.figure(figsize=(15, 8))
@@ -64,80 +44,54 @@ class SentimentService:
 
         # Set style
         sns.set_theme(style="darkgrid")
-        plt.rcParams.update({
-            'figure.facecolor': 'white',
-            'axes.facecolor': '#f0f0f0',
-            'grid.alpha': 0.2,
-            'grid.linestyle': ':',
-            'axes.grid.which': 'both',
-            'axes.grid.axis': 'both'
-        })
+        plt.rcParams.update({"figure.facecolor": "white", "axes.facecolor": "#f0f0f0", "grid.alpha": 0.2, "grid.linestyle": ":", "axes.grid.which": "both", "axes.grid.axis": "both"})
 
         # Main sentiment plot
         ax1 = fig.add_subplot(gs[0])
 
         # Plot neutral as background
-        ax1.fill_between(rolling_avgs["24h"].index, 0, rolling_avgs["24h"]["neutral"],
-                        color="gray", alpha=0.15, label="Neutral (24h avg)")
-        ax1.plot(rolling_avgs["24h"].index, rolling_avgs["24h"]["neutral"],
-                label="_nolegend_", color="gray", linewidth=1, alpha=0.5)
+        ax1.fill_between(rolling_avgs["24h"].index, 0, rolling_avgs["24h"]["neutral"], color="gray", alpha=0.15, label="Neutral (24h avg)")
+        ax1.plot(rolling_avgs["24h"].index, rolling_avgs["24h"]["neutral"], label="_nolegend_", color="gray", linewidth=1, alpha=0.5)
 
         # Plot sentiments
         for sentiment, color in GRAPH_COLORS.items():
-            ax1.plot(rolling_avgs["24h"].index, rolling_avgs["24h"][sentiment],
-                    label=f"{sentiment.capitalize()} (24h avg)",
-                    color=color, linewidth=2, alpha=0.8)
-            ax1.fill_between(rolling_avgs["24h"].index,
-                           rolling_avgs["24h"][sentiment],
-                           alpha=0.2, color=color)
+            ax1.plot(rolling_avgs["24h"].index, rolling_avgs["24h"][sentiment], label=f"{sentiment.capitalize()} (24h avg)", color=color, linewidth=2, alpha=0.8)
+            ax1.fill_between(rolling_avgs["24h"].index, rolling_avgs["24h"][sentiment], alpha=0.2, color=color)
 
             # Add peaks
-            if len(peaks[sentiment]['timestamps']) > 0:
-                peak_times = peaks[sentiment]['timestamps']
-                peak_values = peaks[sentiment]['values']
+            if len(peaks[sentiment]["timestamps"]) > 0:
+                peak_times = peaks[sentiment]["timestamps"]
+                peak_values = peaks[sentiment]["values"]
                 peak_times_list = peak_times.tolist()
                 peak_values_list = peak_values.tolist()
 
-                ax1.scatter(peak_times_list, peak_values_list,
-                          color=color, s=100, zorder=5, alpha=0.6,
-                          label=f"{sentiment.capitalize()} peaks")
+                ax1.scatter(peak_times_list, peak_values_list, color=color, s=100, zorder=5, alpha=0.6, label=f"{sentiment.capitalize()} peaks")
 
                 # Annotate top peaks
-                peak_data = sorted(zip(peak_times_list, peak_values_list),
-                                 key=lambda x: x[1], reverse=True)
-                for peak_time, peak_val in peak_data[:min(2, len(peak_data))]:
-                    ax1.annotate(f"{peak_time.strftime('%Y-%m-%d %H:%M')}\n{peak_val:.2f}",
-                               xy=(peak_time, peak_val),
-                               xytext=(10, 10), textcoords="offset points",
-                               bbox=dict(facecolor='white', edgecolor=color, alpha=0.7),
-                               fontsize=8)
+                peak_data = sorted(zip(peak_times_list, peak_values_list), key=lambda x: x[1], reverse=True)
+                for peak_time, peak_val in peak_data[: min(2, len(peak_data))]:
+                    ax1.annotate(f"{peak_time.strftime('%Y-%m-%d %H:%M')}\n{peak_val:.2f}", xy=(peak_time, peak_val), xytext=(10, 10), textcoords="offset points", bbox=dict(facecolor="white", edgecolor=color, alpha=0.7), fontsize=8)
 
         # Volatility plot
         ax2 = fig.add_subplot(gs[1], sharex=ax1)
         volatility_filled = volatility["positive"].ffill().bfill()
-        ax2.plot(volatility.index, volatility_filled,
-                label="Emotional Volatility",
-                color="purple", linewidth=2)
-        ax2.fill_between(volatility.index, volatility_filled,
-                        alpha=0.2, color="purple")
+        ax2.plot(volatility.index, volatility_filled, label="Emotional Volatility", color="purple", linewidth=2)
+        ax2.fill_between(volatility.index, volatility_filled, alpha=0.2, color="purple")
 
         # Add mean volatility line
         mean_volatility = volatility["positive"].mean()
-        ax2.axhline(y=mean_volatility, color='black', linestyle='--', alpha=0.5)
-        ax2.annotate(f'Mean: {mean_volatility:.3f}',
-                    xy=(volatility.index[0], mean_volatility),
-                    xytext=(10, 10), textcoords='offset points',
-                    bbox=dict(facecolor='white', edgecolor='black', alpha=0.7))
+        ax2.axhline(y=mean_volatility, color="black", linestyle="--", alpha=0.5)
+        ax2.annotate(f"Mean: {mean_volatility:.3f}", xy=(volatility.index[0], mean_volatility), xytext=(10, 10), textcoords="offset points", bbox=dict(facecolor="white", edgecolor="black", alpha=0.7))
 
         # Format axes
         ax1.set_ylabel("Sentiment Score", fontsize=12)
-        ax1.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
-        ax1.grid(True, which='both')
+        ax1.legend(loc="center left", bbox_to_anchor=(1.02, 0.5))
+        ax1.grid(True, which="both")
         ax1.minorticks_on()
         ax1.margins(x=0)
         ax2.margins(x=0)
         ax2.set_ylabel("Volatility", fontsize=12)
-        ax2.grid(True, which='both')
+        ax2.grid(True, which="both")
         ax2.minorticks_on()
 
         for ax in [ax1, ax2]:
@@ -146,17 +100,12 @@ class SentimentService:
             plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
 
         # Add stats textbox
-        stats_text = (
-            f"Total Messages: {len(df)}\n"
-            f"Avg Sentiment: {df.mean().round(3).to_dict()}\n"
-            f"Peak Count: {sum(len(p) for p in peaks.values())}"
-        )
-        fig.text(0.02, 0.98, stats_text, fontsize=8,
-                bbox=dict(facecolor='white', edgecolor='gray', alpha=0.8))
+        stats_text = f"Total Messages: {len(df)}\nAvg Sentiment: {df.mean().round(3).to_dict()}\nPeak Count: {sum(len(p) for p in peaks.values())}"
+        fig.text(0.02, 0.98, stats_text, fontsize=8, bbox=dict(facecolor="white", edgecolor="gray", alpha=0.8))
 
         # Save plot
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', pad_inches=0.2)
+        plt.savefig(buf, format="png", dpi=300, bbox_inches="tight", pad_inches=0.2)
         buf.seek(0)
         plt.close()
 
@@ -179,16 +128,7 @@ class SentimentService:
             return MESSAGES["SENTIMENT_NO_MESSAGES"]
 
         # Initialize counters and trackers
-        stats = {
-            "total_messages": 0,
-            "filtered_messages": 0,
-            "skipped_no_sentiment": 0,
-            "skipped_no_chat": 0,
-            "skipped_bot_replies": 0,
-            "skipped_wrong_chat_type": 0,
-            "skipped_forwarded": 0,
-            "duplicate_count": 0
-        }
+        stats = {"total_messages": 0, "filtered_messages": 0, "skipped_no_sentiment": 0, "skipped_no_chat": 0, "skipped_bot_replies": 0, "skipped_wrong_chat_type": 0, "skipped_forwarded": 0, "duplicate_count": 0}
 
         user_sentiments = defaultdict(lambda: {"negative": 0.0, "neutral": 0.0, "positive": 0.0, "count": 0})
         user_topics = defaultdict(lambda: defaultdict(int))
@@ -224,18 +164,16 @@ class SentimentService:
             if "from_user" in msg:
                 from_user = msg["from_user"]
                 username = (
-                    from_user.get("username") or  # Try username first
-                    from_user.get("first_name") or  # Then first_name
-                    f"user_{user_id}"  # Finally fall back to user_id
+                    from_user.get("username")  # Try username first
+                    or from_user.get("first_name")  # Then first_name
+                    or f"user_{user_id}"  # Finally fall back to user_id
                 )
             else:
                 username = f"user_{user_id}"
-                
+
             text = msg.get("text", "").strip()
 
-            if ("reply_to_message" in msg and 
-                "from_user" in msg["reply_to_message"] and 
-                msg["reply_to_message"]["from_user"].get("is_bot", False)):
+            if "reply_to_message" in msg and "from_user" in msg["reply_to_message"] and msg["reply_to_message"]["from_user"].get("is_bot", False):
                 stats["skipped_bot_replies"] += 1
                 continue
 
@@ -256,11 +194,7 @@ class SentimentService:
 
             # Track top texts
             if SentimentService.is_valid_text(text):
-                sentiment_scores = {
-                    "positive": msg.sentiment.positive,
-                    "negative": msg.sentiment.negative,
-                    "neutral": msg.sentiment.neutral
-                }
+                sentiment_scores = {"positive": msg.sentiment.positive, "negative": msg.sentiment.negative, "neutral": msg.sentiment.neutral}
                 max_sentiment = max(sentiment_scores.items(), key=lambda x: x[1])
 
                 if max_sentiment[1] >= SENTIMENT_THRESHOLD:
@@ -274,20 +208,10 @@ class SentimentService:
                         if score > TOPIC_THRESHOLD:
                             top_texts["topics"][topic].append((text, score))
 
-        return SentimentService._format_analysis_results(
-            stats, user_sentiments, user_topics, 
-            user_message_count, sensitive_topics, top_texts
-        )
+        return SentimentService._format_analysis_results(stats, user_sentiments, user_topics, user_message_count, sensitive_topics, top_texts)
 
     @staticmethod
-    def _format_analysis_results(
-        stats: Dict,
-        user_sentiments: Dict,
-        user_topics: Dict,
-        user_message_count: Dict,
-        sensitive_topics: Dict,
-        top_texts: Dict
-    ) -> str:
+    def _format_analysis_results(stats: Dict, user_sentiments: Dict, user_topics: Dict, user_message_count: Dict, sensitive_topics: Dict, top_texts: Dict) -> str:
         """Format analysis results into a readable string"""
         if not user_sentiments:
             return MESSAGES["SENTIMENT_NO_DATA"]
@@ -305,15 +229,7 @@ class SentimentService:
                 volatility = (avg_positive + avg_negative) * (1 - avg_neutral)
                 sentiment_score = base_score * intensity_factor
 
-                user_avg_sentiments.append({
-                    "username": username,
-                    "sentiment_score": sentiment_score,
-                    "volatility": volatility,
-                    "avg_negative": avg_negative,
-                    "avg_positive": avg_positive,
-                    "avg_neutral": avg_neutral,
-                    "message_count": scores["count"]
-                })
+                user_avg_sentiments.append({"username": username, "sentiment_score": sentiment_score, "volatility": volatility, "avg_negative": avg_negative, "avg_positive": avg_positive, "avg_neutral": avg_neutral, "message_count": scores["count"]})
 
         # Format results
         result = [
@@ -331,12 +247,10 @@ class SentimentService:
         volatile_users = sorted(filtered_users, key=lambda x: x["volatility"], reverse=True)[:5]
 
         # Add user rankings
-        result.extend(SentimentService._format_user_rankings(
-            negative_users, positive_users, volatile_users))
+        result.extend(SentimentService._format_user_rankings(negative_users, positive_users, volatile_users))
 
         # Add topic statistics
-        result.extend(SentimentService._format_topic_stats(
-            user_topics, user_message_count, sensitive_topics))
+        result.extend(SentimentService._format_topic_stats(user_topics, user_message_count, sensitive_topics))
 
         # Add top messages
         result.extend(SentimentService._format_top_messages(top_texts, sensitive_topics))
@@ -347,44 +261,34 @@ class SentimentService:
     def _format_user_rankings(negative_users, positive_users, volatile_users) -> List[str]:
         """Format user rankings section"""
         result = []
-        
+
         # Negative users
         result.append(f"\n😠 <b>Самые негативные:</b> (мин. {MIN_MESSAGES} сообщений)")
         for user in negative_users:
             # Format username - only add @ if it looks like a username
-            display_name = user['username']
-            if not display_name.startswith(('user_', '@')):
+            display_name = user["username"]
+            if not display_name.startswith(("user_", "@")):
                 display_name = f"@{display_name}"
-                
-            result.append(
-                f"\n{display_name}: {user['avg_negative']:.2%} neg, "
-                f"{user['avg_neutral']:.2%} neut, {user['message_count']} msgs"
-            )
+
+            result.append(f"\n{display_name}: {user['avg_negative']:.2%} neg, {user['avg_neutral']:.2%} neut, {user['message_count']} msgs")
 
         # Positive users
         result.append(f"\n\n😊 <b>Самые позитивные:</b> (мин. {MIN_MESSAGES} сообщений)")
         for user in positive_users:
-            display_name = user['username']
-            if not display_name.startswith(('user_', '@')):
+            display_name = user["username"]
+            if not display_name.startswith(("user_", "@")):
                 display_name = f"@{display_name}"
-                
-            result.append(
-                f"\n{display_name}: {user['avg_positive']:.2%} pos, "
-                f"{user['avg_neutral']:.2%} neut, {user['message_count']} msgs"
-            )
+
+            result.append(f"\n{display_name}: {user['avg_positive']:.2%} pos, {user['avg_neutral']:.2%} neut, {user['message_count']} msgs")
 
         # Volatile users
         result.append(f"\n\n🎭 <b>Самые эмоциональные:</b> (мин. {MIN_MESSAGES} сообщений)")
         for user in volatile_users:
-            display_name = user['username']
-            if not display_name.startswith(('user_', '@')):
+            display_name = user["username"]
+            if not display_name.startswith(("user_", "@")):
                 display_name = f"@{display_name}"
-                
-            result.append(
-                f"\n{display_name}: {user['volatility']:.2%} volatility "
-                f"(pos: {user['avg_positive']:.2%}, neg: {user['avg_negative']:.2%}, "
-                f"neut: {user['avg_neutral']:.2%}, {user['message_count']} msgs)"
-            )
+
+            result.append(f"\n{display_name}: {user['volatility']:.2%} volatility (pos: {user['avg_positive']:.2%}, neg: {user['avg_negative']:.2%}, neut: {user['avg_neutral']:.2%}, {user['message_count']} msgs)")
 
         return result
 
@@ -392,7 +296,7 @@ class SentimentService:
     def _format_topic_stats(user_topics, user_message_count, sensitive_topics) -> List[str]:
         """Format topic statistics section"""
         result = ["\n\n⚠️ <b>Преступники:</b>"]
-        
+
         user_topic_stats = []
         for username, topics in user_topics.items():
             total_mentions = sum(topics.values())
@@ -404,9 +308,9 @@ class SentimentService:
         for username, mentions, percentage in user_topic_stats[:5]:
             # Format username - only add @ if it looks like a username
             display_name = username
-            if not display_name.startswith(('user_', '@')):
+            if not display_name.startswith(("user_", "@")):
                 display_name = f"@{display_name}"
-                
+
             user_top_topics = sorted(user_topics[username].items(), key=lambda x: x[1], reverse=True)[:3]
             top_topics_str = ", ".join(f"{topic}: {count}" for topic, count in user_top_topics)
             result.append(f"\n{display_name}: {mentions} mentions ({percentage:.1f}% of messages)")

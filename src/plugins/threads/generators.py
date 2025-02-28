@@ -13,8 +13,7 @@ log = get_logger(__name__)
 
 # Russian date formatting constants
 WEEKDAY_NAMES = {0: "Пнд", 1: "Втр", 2: "Срд", 3: "Чтв", 4: "Птн", 5: "Суб", 6: "Вск"}
-MONTH_NAMES = {1: "Янв", 2: "Фев", 3: "Мар", 4: "Апр", 5: "Май", 6: "Июн",
-               7: "Июл", 8: "Авг", 9: "Сен", 10: "Окт", 11: "Ноя", 12: "Дек"}
+MONTH_NAMES = {1: "Янв", 2: "Фев", 3: "Мар", 4: "Апр", 5: "Май", 6: "Июн", 7: "Июл", 8: "Авг", 9: "Сен", 10: "Окт", 11: "Ноя", 12: "Дек"}
 
 
 class BaseThreadGenerator(ABC):
@@ -58,7 +57,7 @@ class BaseThreadGenerator(ABC):
             month = MONTH_NAMES[dt.month]
             return f"{dt.day:02d} {month} {dt.year % 100:02d} {weekday} {dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}"
         else:
-            weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.weekday()]
+            weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dt.weekday()]
             return dt.strftime(f"%m/%d/%y({weekday})%H:%M:%S")
 
     def get_random_image(self) -> str:
@@ -86,12 +85,7 @@ class BaseThreadGenerator(ABC):
 
             formatted_text = self.format_comment_text(text, thread_id)
 
-            formatted.append({
-                "id": comment_id,
-                "name": self.get_anon_name(),
-                "date": self.format_date(current_time + timedelta(minutes=random.randint(2, 5)), self.use_russian),
-                "text": formatted_text
-            })
+            formatted.append({"id": comment_id, "name": self.get_anon_name(), "date": self.format_date(current_time + timedelta(minutes=random.randint(2, 5)), self.use_russian), "text": formatted_text})
 
         return formatted
 
@@ -122,7 +116,7 @@ class BaseThreadGenerator(ABC):
                     with Image.open(path) as img:
                         width, height = img.size
                     img_size = f"{size_kb}{'Кб' if self.use_russian else 'KB'}, {width}x{height}"
-                    img_url = "file:///" + str(path.absolute()).replace('\\', '/')
+                    img_url = "file:///" + str(path.absolute()).replace("\\", "/")
 
             # Prepare template data
             template_data = self.prepare_template_data(thread_id, story, comments, img_url, img_size)
@@ -139,7 +133,7 @@ class BaseThreadGenerator(ABC):
             temp_png = temp_dir / f"temp_{thread_id}.png"
 
             # Write HTML
-            temp_html.write_text(html, encoding='utf-8')
+            temp_html.write_text(html, encoding="utf-8")
 
             # Generate image
             options = self.get_imgkit_options()
@@ -159,8 +153,7 @@ class BaseThreadGenerator(ABC):
             return None
 
     @abstractmethod
-    def prepare_template_data(self, thread_id: str, story: str, comments: List[str],
-                              img_url: str, img_size: str) -> Dict:
+    def prepare_template_data(self, thread_id: str, story: str, comments: List[str], img_url: str, img_size: str) -> Dict:
         """Prepare data for template rendering"""
         pass
 
@@ -180,13 +173,13 @@ class BugurtGenerator(BaseThreadGenerator):
         return Path("assets/yoba")
 
     def format_story(self, text: str) -> str:
-        parts = [p.strip() for p in text.replace('\n', '@').split('@') if p.strip()]
+        parts = [p.strip() for p in text.replace("\n", "@").split("@") if p.strip()]
         formatted_parts = []
         for part in parts:
-            if part.startswith('>'):
+            if part.startswith(">"):
                 part = f'<span class="unkfunc">{part}</span>'
             formatted_parts.append(part)
-        return '<br>@<br>'.join(formatted_parts)
+        return "<br>@<br>".join(formatted_parts)
 
     def format_comment_text(self, text: str, thread_id: str) -> str:
         lines = text.split("\n")
@@ -194,9 +187,9 @@ class BugurtGenerator(BaseThreadGenerator):
         for line in lines:
             line = line.strip()
             if line:
-                if line.startswith('>>'):
+                if line.startswith(">>"):
                     line = f'<a href="#" class="post-reply-link" data-thread="{thread_id}" data-num="{line[2:]}">{line}</a>'
-                elif line.startswith('>'):
+                elif line.startswith(">"):
                     line = f'<span class="unkfunc">{line}</span>'
                 formatted_lines.append(line)
         return "<br>".join(formatted_lines)
@@ -208,28 +201,12 @@ class BugurtGenerator(BaseThreadGenerator):
     def use_russian(self) -> bool:
         return True
 
-    def prepare_template_data(self, thread_id: str, story: str, comments: List[str],
-                              img_url: str, img_size: str) -> Dict:
+    def prepare_template_data(self, thread_id: str, story: str, comments: List[str], img_url: str, img_size: str) -> Dict:
         current_time = self.format_date(datetime.now(), self.use_russian)
-        return {
-            "post_id": thread_id,
-            "name": self.get_anon_name(),
-            "date": current_time,
-            "image_path": img_url,
-            "image_name": "@not_salieri_bot",
-            "image_size": img_size,
-            "post_text": self.format_story(story),
-            "comments": self.format_comments(comments, thread_id)
-        }
+        return {"post_id": thread_id, "name": self.get_anon_name(), "date": current_time, "image_path": img_url, "image_name": "@not_salieri_bot", "image_size": img_size, "post_text": self.format_story(story), "comments": self.format_comments(comments, thread_id)}
 
     def get_imgkit_options(self) -> Dict:
-        return {
-            "format": "png",
-            "encoding": "UTF-8",
-            "quality": 100,
-            "enable-local-file-access": "",
-            "user-style-sheet": str(self.template_dir / "default.css")
-        }
+        return {"format": "png", "encoding": "UTF-8", "quality": 100, "enable-local-file-access": "", "user-style-sheet": str(self.template_dir / "default.css")}
 
 
 class GreentextGenerator(BaseThreadGenerator):
@@ -243,26 +220,26 @@ class GreentextGenerator(BaseThreadGenerator):
 
     def format_story(self, text: str) -> str:
         lines = []
-        for line in text.split('\n'):
+        for line in text.split("\n"):
             line = line.strip()
             if line:
-                if line.startswith('>') and not line.startswith('>>'):
+                if line.startswith(">") and not line.startswith(">>"):
                     line = f'<span class="quote">{line}</span>'
                 lines.append(line)
-        return '<br>'.join(lines)
+        return "<br>".join(lines)
 
     def format_comment_text(self, text: str, thread_id: str) -> str:
-        lines = text.split('\n')
+        lines = text.split("\n")
         formatted_lines = []
         for line in lines:
             line = line.strip()
             if line:
-                if line.startswith('>>'):
+                if line.startswith(">>"):
                     line = f'<a href="#p{line[2:]}" class="quotelink">{line}</a>'
-                elif line.startswith('>'):
+                elif line.startswith(">"):
                     line = f'<span class="quote">{line}</span>'
                 formatted_lines.append(line)
-        return '<br>'.join(formatted_lines)
+        return "<br>".join(formatted_lines)
 
     def get_anon_name(self) -> str:
         return "Anonymous"
@@ -271,29 +248,13 @@ class GreentextGenerator(BaseThreadGenerator):
     def use_russian(self) -> bool:
         return False
 
-    def prepare_template_data(self, thread_id: str, story: str, comments: List[str],
-                              img_url: str, img_size: str) -> Dict:
+    def prepare_template_data(self, thread_id: str, story: str, comments: List[str], img_url: str, img_size: str) -> Dict:
         current_time = self.format_date(datetime.now(), self.use_russian)
         return {
             "thread_title": "Greentext",
-            "post": {
-                "id": thread_id,
-                "subject": "",
-                "name": self.get_anon_name(),
-                "datetime": current_time,
-                "has_image": bool(img_url),
-                "image_url": img_url,
-                "filename": "@not_salieri_bot",
-                "filesize": img_size,
-                "message": self.format_story(story)
-            },
-            "replies": self.format_comments(comments, thread_id)
+            "post": {"id": thread_id, "subject": "", "name": self.get_anon_name(), "datetime": current_time, "has_image": bool(img_url), "image_url": img_url, "filename": "@not_salieri_bot", "filesize": img_size, "message": self.format_story(story)},
+            "replies": self.format_comments(comments, thread_id),
         }
 
     def get_imgkit_options(self) -> Dict:
-        return {
-            "format": "png",
-            "encoding": "UTF-8",
-            "quality": 100,
-            "enable-local-file-access": ""
-        }
+        return {"format": "png", "encoding": "UTF-8", "quality": 100, "enable-local-file-access": ""}

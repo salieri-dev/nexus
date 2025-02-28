@@ -22,16 +22,11 @@ async def transcribe_handler(client: Client, message: Message):
 
     # Skip transcription in non-private chats if disabled
     if message.chat.type != ChatType.PRIVATE:
-        if not await get_chat_setting(message.chat.id, 'transcribe', default=True):
+        if not await get_chat_setting(message.chat.id, "transcribe", default=True):
             return
 
     # Get audio duration
-    duration = (
-        message.audio.duration if message.audio
-        else message.voice.duration if message.voice
-        else message.video_note.duration if message.video_note
-        else None
-    )
+    duration = message.audio.duration if message.audio else message.voice.duration if message.voice else message.video_note.duration if message.video_note else None
 
     if duration and duration < MIN_AUDIO_DURATION:
         log.info("Audio too short")
@@ -41,11 +36,7 @@ async def transcribe_handler(client: Client, message: Message):
         log.info("Audio too long")
         return
 
-    log.info(
-        "Processing audio message",
-        chat_id=message.chat.id,
-        duration=duration
-    )
+    log.info("Processing audio message", chat_id=message.chat.id, duration=duration)
 
     # Download the audio file
     file_path = await message.download()
@@ -61,12 +52,7 @@ async def transcribe_handler(client: Client, message: Message):
     os.remove(file_path)
 
     # Skip if transcription contains blocked text
-    blocked_texts = [
-        "DimaTorzok",
-        "Субтитры делал",
-        "Субтитры сделал",
-        "Продолжение следует"
-    ]
+    blocked_texts = ["DimaTorzok", "Субтитры делал", "Субтитры сделал", "Продолжение следует"]
 
     if any(text in result["transcription"] for text in blocked_texts):
         log.info("Skipping transcription containing blocked text")
@@ -74,8 +60,4 @@ async def transcribe_handler(client: Client, message: Message):
 
     # Only reply if transcription was successful
     if result["transcription"]:
-        await message.reply_text(
-            TRANSCRIPTION_SUCCESS.format(result["transcription"]),
-            quote=True,
-            parse_mode=ParseMode.DEFAULT
-        )
+        await message.reply_text(TRANSCRIPTION_SUCCESS.format(result["transcription"]), quote=True, parse_mode=ParseMode.DEFAULT)

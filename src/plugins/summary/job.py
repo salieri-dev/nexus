@@ -35,7 +35,9 @@ MESSAGE_TYPES = {
 
 class InsufficientDataError(Exception):
     """Raised when there are not enough messages to generate a summary"""
+
     pass
+
 
 async def init_summary(message_repository: MessageRepository, config_repository: PeerConfigRepository, client=None):
     """Initialize the summary job singleton."""
@@ -44,7 +46,7 @@ async def init_summary(message_repository: MessageRepository, config_repository:
         # Get database client for summary repository
         db_client = DatabaseClient.get_instance()
         summary_repository = SummaryRepository(db_client.client)
-        
+
         _summary_job = SummaryJob(message_repository, config_repository, summary_repository, client)
         # Initialize configuration
         await _summary_job.initialize_config()
@@ -82,18 +84,15 @@ class SummaryJob:
         # Load configurations asynchronously in initialize method
 
         # Get cron schedule from env or use default (10:00 MSK daily)
-        cron_schedule = os.getenv('SUMMARIZATION_CRON', '0 10 * * *')
+        cron_schedule = os.getenv("SUMMARIZATION_CRON", "0 10 * * *")
         log.info("Configuring schedule", cron_schedule=cron_schedule)
 
         # Schedule job using cron expression
         # Note: client will be passed when the job is triggered
         self.scheduler.add_job(
             self.generate_daily_summary,
-            CronTrigger.from_crontab(
-                cron_schedule,
-                timezone=MOSCOW_TZ
-            ),
-            misfire_grace_time=3600  # Allow job to run up to 1 hour late
+            CronTrigger.from_crontab(cron_schedule, timezone=MOSCOW_TZ),
+            misfire_grace_time=3600,  # Allow job to run up to 1 hour late
         )
 
         self.scheduler.start()
@@ -114,9 +113,7 @@ class SummaryJob:
             # Load min messages threshold
             self.min_messages_threshold = config.get("SUMMARY_MIN_MESSAGES_THRESHOLD", 60)
 
-            log.info("Summary plugin configuration loaded",
-                     model=self.model_name,
-                     threshold=self.min_messages_threshold)
+            log.info("Summary plugin configuration loaded", model=self.model_name, threshold=self.min_messages_threshold)
 
         except Exception as e:
             log.error("Error loading summary configuration", error=str(e))
@@ -136,7 +133,7 @@ class SummaryJob:
                 model=self.model_name,
                 temperature=0.8,
                 max_tokens=50000,
-                response_format=SummarizationResponse
+                response_format=SummarizationResponse,
             )
 
             log.info("Received summary response", response=completion)
@@ -163,7 +160,7 @@ class SummaryJob:
 
             # Convert UTC to Moscow time
             local_time = created_at.astimezone(MOSCOW_TZ)
-            time_str = local_time.strftime('%H:%M:%S')
+            time_str = local_time.strftime("%H:%M:%S")
 
             # Get user info
             user = message.get("from_user", {})
@@ -209,12 +206,10 @@ class SummaryJob:
     async def get_messages_for_date(self, chat_id: int, date: datetime) -> List[Dict]:
         """Get messages for a specific chat and date in Moscow timezone."""
         try:
-            date_str = date.strftime('%Y-%m-%d')
+            date_str = date.strftime("%Y-%m-%d")
 
             # Convert date to start and end of day in MSK
-            start_date = MOSCOW_TZ.localize(
-                datetime.combine(date.date(), datetime.min.time())
-            )
+            start_date = MOSCOW_TZ.localize(datetime.combine(date.date(), datetime.min.time()))
             end_date = start_date + timedelta(days=1)
 
             # Convert to UTC for MongoDB query
@@ -222,30 +217,30 @@ class SummaryJob:
             end_date_utc = end_date.astimezone(pytz.UTC)
 
             # Query messages within the date range for specific chat
-            cursor = self.message_repository.collection.find({
-                "created_at": {
-                    "$gte": start_date_utc,
-                    "$lt": end_date_utc
-                },
-                "chat.id": chat_id,
-                "$and": [
-                    {"$or": [
-                        {"text": {"$exists": True, "$ne": "", "$not": {"$regex": "^/"}}},
-                        # Non-empty text that doesn't start with /
-                        {"caption": {"$exists": True, "$ne": ""}}  # Non-empty caption
-                    ]},
-                    {"$or": [
-                        {"from_user.is_bot": False},  # Include non-bot users
-                        {"from_user.is_bot": {"$exists": False}}  # Include users where is_bot field doesn't exist
-                    ]}
-                ]
-            }).sort("created_at", 1)  # Sort by date ascending
+            cursor = self.message_repository.collection.find(
+                {
+                    "created_at": {"$gte": start_date_utc, "$lt": end_date_utc},
+                    "chat.id": chat_id,
+                    "$and": [
+                        {
+                            "$or": [
+                                {"text": {"$exists": True, "$ne": "", "$not": {"$regex": "^/"}}},
+                                # Non-empty text that doesn't start with /
+                                {"caption": {"$exists": True, "$ne": ""}},  # Non-empty caption
+                            ]
+                        },
+                        {
+                            "$or": [
+                                {"from_user.is_bot": False},  # Include non-bot users
+                                {"from_user.is_bot": {"$exists": False}},  # Include users where is_bot field doesn't exist
+                            ]
+                        },
+                    ],
+                }
+            ).sort("created_at", 1)  # Sort by date ascending
 
             messages = await cursor.to_list(length=None)
-            log.info("Messages fetched",
-                     chat_id=chat_id,
-                     date=date_str,
-                     message_count=len(messages))
+            log.info("Messages fetched", chat_id=chat_id, date=date_str, message_count=len(messages))
 
             return messages
 
@@ -256,31 +251,19 @@ class SummaryJob:
     async def generate_chat_summary(self, chat_id: int, chat_title: str, date: datetime, is_forced: bool = False):
         """Generate summary for a specific chat."""
         try:
-            date_str = date.strftime('%Y-%m-%d')
+            date_str = date.strftime("%Y-%m-%d")
 
             messages = await self.get_messages_for_date(chat_id, date)
 
             if len(messages) < self.min_messages_threshold:
                 if is_forced:
-                    raise InsufficientDataError(
-                        f"Insufficient messages: {len(messages)} messages"
-                    )
-                log.debug("Skipping summary: not enough messages",
-                          chat_id=chat_id,
-                          chat_title=chat_title,
-                          message_count=len(messages),
-                          threshold=self.min_messages_threshold)
+                    raise InsufficientDataError(f"Insufficient messages: {len(messages)} messages")
+                log.debug("Skipping summary: not enough messages", chat_id=chat_id, chat_title=chat_title, message_count=len(messages), threshold=self.min_messages_threshold)
                 return
 
-            log.info("Generating summary",
-                     chat_id=chat_id,
-                     chat_title=chat_title,
-                     date=date_str,
-                     message_count=len(messages))
+            log.info("Generating summary", chat_id=chat_id, chat_title=chat_title, date=date_str, message_count=len(messages))
 
-            log.debug("Processing messages",
-                      chat_id=chat_id,
-                      message_count=len(messages))
+            log.debug("Processing messages", chat_id=chat_id, message_count=len(messages))
 
             # Format messages
             formatted_lines = []
@@ -289,32 +272,25 @@ class SummaryJob:
                     formatted_lines.append(formatted_msg)
 
             if not formatted_lines:
-                log.info("No valid messages to summarize",
-                         chat_id=chat_id,
-                         chat_title=chat_title)
+                log.info("No valid messages to summarize", chat_id=chat_id, chat_title=chat_title)
                 return
 
-            log.info("Messages processed",
-                     chat_id=chat_id,
-                     original_count=len(messages),
-                     final_count=len(formatted_lines))
+            log.info("Messages processed", chat_id=chat_id, original_count=len(messages), final_count=len(formatted_lines))
 
             # Get human readable date
-            human_date = date.strftime('%B %d, %Y')  # e.g. February 23, 2025
+            human_date = date.strftime("%B %d, %Y")  # e.g. February 23, 2025
 
             # Generate summary using OpenRouter
             # Prepare chat log - same format as written to file
             chat_log = f"Chat: {chat_title} [{chat_id}]\n"
             chat_log += f"Date: {date_str} ({human_date})\n"
             chat_log += "-" * 50 + "\n\n"
-            chat_log += '\n'.join(formatted_lines)
+            chat_log += "\n".join(formatted_lines)
 
             summary = await self._generate_summary(chat_log)
 
             if not summary or not summary.themes:
-                log.error("Invalid summarization result",
-                          chat_id=chat_id,
-                          chat_title=chat_title)
+                log.error("Invalid summarization result", chat_id=chat_id, chat_title=chat_title)
                 return
 
             # Write to file
@@ -324,35 +300,22 @@ class SummaryJob:
             filename = os.path.join(chat_dir, f"chat_log_{date_str}.txt")
             summary_filename = os.path.join(chat_dir, f"summary_{date_str}.json")
 
-            log.debug("Writing summary to files",
-                      chat_id=chat_id,
-                      log_filename=filename,
-                      summary_filename=summary_filename)
+            log.debug("Writing summary to files", chat_id=chat_id, log_filename=filename, summary_filename=summary_filename)
 
             # Write chat log - exactly the same format as sent to OpenRouter
-            with open(filename, 'w', encoding='utf-8') as f:
+            with open(filename, "w", encoding="utf-8") as f:
                 f.write(chat_log)
 
             # Write summary if available - use model's json() method
-            with open(summary_filename, 'w', encoding='utf-8') as f:
+            with open(summary_filename, "w", encoding="utf-8") as f:
                 json_str = summary.model_dump_json(indent=2)
                 f.write(json_str)
 
             # Store summary in database
             themes_data = summary.model_dump().get("themes", [])
-            await self.summary_repository.store_summary(
-                chat_id=chat_id,
-                chat_title=chat_title,
-                summary_date=date,
-                themes=themes_data,
-                message_count=len(messages)
-            )
+            await self.summary_repository.store_summary(chat_id=chat_id, chat_title=chat_title, summary_date=date, themes=themes_data, message_count=len(messages))
 
-            log.info("Summary files written and stored in database",
-                     chat_id=chat_id,
-                     chat_title=chat_title,
-                     log_filename=filename,
-                     summary_filename=summary_filename)
+            log.info("Summary files written and stored in database", chat_id=chat_id, chat_title=chat_title, log_filename=filename, summary_filename=summary_filename)
 
             # Format and return summary text
             message_text = "📊 Итоги обсуждений за "
@@ -363,10 +326,7 @@ class SummaryJob:
                 message_text += f"{theme.emoji} **{theme.name}** "
 
                 if theme.messages_id:
-                    links = [
-                        f"[{i + 1}](t.me/c/{str(chat_id)[4:]}/{msg_id})"
-                        for i, msg_id in enumerate(theme.messages_id)
-                    ]
+                    links = [f"[{i + 1}](t.me/c/{str(chat_id)[4:]}/{msg_id})" for i, msg_id in enumerate(theme.messages_id)]
                     message_text += f"({', '.join(links)})\n"
                 else:
                     message_text += "\n"
@@ -380,10 +340,7 @@ class SummaryJob:
         except InsufficientDataError:
             raise
         except Exception as e:
-            log.error("Error generating chat summary",
-                      error=str(e),
-                      chat_id=chat_id,
-                      date=date.strftime('%Y-%m-%d'))
+            log.error("Error generating chat summary", error=str(e), chat_id=chat_id, date=date.strftime("%Y-%m-%d"))
 
     async def generate_daily_summary(self, client=None):
         """Generate daily summary of messages for all enabled chats."""
@@ -392,7 +349,7 @@ class SummaryJob:
         try:
             # Get yesterday's date in Moscow timezone
             yesterday = datetime.now(MOSCOW_TZ) - timedelta(days=1)
-            date_str = yesterday.strftime('%Y-%m-%d')
+            date_str = yesterday.strftime("%Y-%m-%d")
 
             log.info("Starting daily summary generation", date=date_str)
 
@@ -406,7 +363,7 @@ class SummaryJob:
                 # First get all distinct chat documents with their type
                 pipeline = [
                     {"$match": {"chat.type": {"$ne": "ChatType.PRIVATE"}}},  # Exclude private chats
-                    {"$group": {"_id": "$chat.id"}}
+                    {"$group": {"_id": "$chat.id"}},
                 ]
                 cursor = self.message_repository.collection.aggregate(pipeline)
                 result = await cursor.to_list(length=None)
@@ -420,7 +377,7 @@ class SummaryJob:
                 try:
                     # Check if summarization is enabled for this chat using the framework
                     from src.config.framework import get_chat_setting
-                    
+
                     if not await get_chat_setting(chat_id, "summary", default=False):
                         log.debug("Summary disabled for chat", chat_id=chat_id)
                         continue
@@ -437,29 +394,16 @@ class SummaryJob:
                         processed_count += 1
                         # Send the summary_text to the chat
                         try:
-                            await client.send_message(
-                                chat_id=chat_id,
-                                text=summary_text,
-                                disable_web_page_preview=True,
-                                parse_mode=ParseMode.MARKDOWN
-                            )
+                            await client.send_message(chat_id=chat_id, text=summary_text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN)
                             log.info("Summary sent to chat", chat_id=chat_id, chat_title=chat_title)
                         except Exception as e:
-                            log.error("Failed to send summary to chat",
-                                      error=str(e),
-                                      chat_id=chat_id)
+                            log.error("Failed to send summary to chat", error=str(e), chat_id=chat_id)
 
                 except Exception as e:
-                    log.error("Error processing chat",
-                              error=str(e),
-                              chat_id=chat_id)
+                    log.error("Error processing chat", error=str(e), chat_id=chat_id)
                     continue
 
-            log.info("Daily summary generation completed",
-                     total_chats=len(chat_ids),
-                     enabled_chats=enabled_count,
-                     processed_chats=processed_count,
-                     date=date_str)
+            log.info("Daily summary generation completed", total_chats=len(chat_ids), enabled_chats=enabled_count, processed_chats=processed_count, date=date_str)
 
         except Exception as e:
             log.error("Error in daily summary generation", error=str(e))

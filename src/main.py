@@ -45,13 +45,7 @@ async def main():
         await init_tanks()
 
         # Initialize client
-        app = Client(
-            credentials.bot.name,
-            api_id=credentials.bot.app_id,
-            api_hash=credentials.bot.app_hash,
-            bot_token=credentials.bot.bot_token,
-            plugins=dict(root="src/plugins"),
-            mongodb=dict(connection=db.client, remove_peers=False))
+        app = Client(credentials.bot.name, api_id=credentials.bot.app_id, api_hash=credentials.bot.app_hash, bot_token=credentials.bot.bot_token, plugins=dict(root="src/plugins"), mongodb=dict(connection=db.client, remove_peers=False))
 
         logger.info("Starting Nexus")
         await app.start()
@@ -68,7 +62,7 @@ async def main():
     finally:
         logger.info("Shutting down Nexus")
         await db.disconnect()
-        if 'app' in locals():
+        if "app" in locals():
             await app.stop()
 
 

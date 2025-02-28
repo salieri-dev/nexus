@@ -1,4 +1,5 @@
 """Dick command handlers"""
+
 import random
 from io import BytesIO
 from typing import Any, Dict, Tuple
@@ -28,7 +29,7 @@ from .constants import (
     AVG_LENGTH_FLACCID,
     STD_LENGTH_FLACCID,
     AVG_GIRTH_FLACCID,
-    STD_GIRTH_FLACCID
+    STD_GIRTH_FLACCID,
 )
 
 
@@ -57,9 +58,7 @@ def calculate_dong_attributes(username: str) -> Dict[str, Any]:
     stamina = random.uniform(1, 60)
     sensitivity = random.uniform(1, 10)
 
-    satisfaction_rating, satisfaction_comment = calculate_satisfaction_rating(
-        length_erect, girth_erect, rigidity, stamina, sensitivity
-    )
+    satisfaction_rating, satisfaction_comment = calculate_satisfaction_rating(length_erect, girth_erect, rigidity, stamina, sensitivity)
 
     return {
         "username": username,
@@ -81,9 +80,7 @@ def calculate_dong_attributes(username: str) -> Dict[str, Any]:
     }
 
 
-def calculate_satisfaction_rating(
-        length: float, girth: float, rigidity: float, stamina: float, sensitivity: float
-) -> Tuple[float, str]:
+def calculate_satisfaction_rating(length: float, girth: float, rigidity: float, stamina: float, sensitivity: float) -> Tuple[float, str]:
     length_score = min(max((length - 13) / 5, 0), 2)
     girth_score = min(max((girth - 10) / 3, 0), 2)
     rigidity_score = rigidity / 50
@@ -209,13 +206,7 @@ def create_report(attributes: Dict[str, Any]) -> str:
         return "🥔 Мягкий" if rigidity < 30 else "🥕 Средний" if rigidity < 70 else "🍆 Стальной"
 
     def get_curvature_description(curvature: float) -> str:
-        return (
-            "⬆️ Прямой"
-            if abs(curvature) < 10
-            else "↗️ Небольшой изгиб"
-            if abs(curvature) < 20
-            else "➰ Значительный изгиб"
-        )
+        return "⬆️ Прямой" if abs(curvature) < 10 else "↗️ Небольшой изгиб" if abs(curvature) < 20 else "➰ Значительный изгиб"
 
     def get_velocity_description(velocity: float) -> str:
         return "🐌 Слабая" if velocity < 10 else "🚀 Сильная" if velocity < 20 else "☄️ Убьёт"
@@ -224,66 +215,47 @@ def create_report(attributes: Dict[str, Any]) -> str:
         return "⚡ Скорострел" if stamina < 10 else "🏃‍♂️ Марафонец" if stamina > 30 else "⏱️ Средний"
 
     def get_refractory_description(refractory_period: float) -> str:
-        return (
-            "🔄 Готов когда-угодно!"
-            if refractory_period < 15
-            else "😴 Нужен перерыв"
-            if refractory_period > 60
-            else "🔂 Можешь несколько раз"
-        )
+        return "🔄 Готов когда-угодно!" if refractory_period < 15 else "😴 Нужен перерыв" if refractory_period > 60 else "🔂 Можешь несколько раз"
 
     def get_sensitivity_description(sensitivity: float) -> str:
-        return (
-            "🗿 Чувствую, как камень"
-            if sensitivity < 3
-            else "🎭 Сверхчувствительный"
-            if sensitivity > 8
-            else "😌 Комфортное"
-        )
+        return "🗿 Чувствую, как камень" if sensitivity < 3 else "🎭 Сверхчувствительный" if sensitivity > 8 else "😌 Комфортное"
 
-    report = f"""🍆 **Пенис {attributes['username']}** 🍆
+    report = f"""🍆 **Пенис {attributes["username"]}** 🍆
 
 📏 **Размеры**
   ├─ В эрекции:
-  │  ├─ Длина: {format_measurement(attributes['length_erect'])}
-  │  ├─ Обхват: {format_measurement(attributes['girth_erect'])}
-  │  └─ Объём: {attributes['volume_erect']:.2f} см³
+  │  ├─ Длина: {format_measurement(attributes["length_erect"])}
+  │  ├─ Обхват: {format_measurement(attributes["girth_erect"])}
+  │  └─ Объём: {attributes["volume_erect"]:.2f} см³
   │
   └─ В покое:
-     ├─ Длина: {format_measurement(attributes['length_flaccid'])}
-     ├─ Обхват: {format_measurement(attributes['girth_flaccid'])}
-     └─ Объём: {attributes['volume_flaccid']:.2f} см³
+     ├─ Длина: {format_measurement(attributes["length_flaccid"])}
+     ├─ Обхват: {format_measurement(attributes["girth_flaccid"])}
+     └─ Объём: {attributes["volume_flaccid"]:.2f} см³
 
 🦸‍♂️ **Суперсилы**
-  ├─ 💪 Твёрдость: {get_rigidity_level(attributes['rigidity'])} ({attributes['rigidity']:.2f}%)
-  ├─ ↪️ Кривизна: {get_curvature_description(attributes['curvature'])} ({attributes['curvature']:.2f}°)
-  ├─ 🚀 Скорость: {get_velocity_description(attributes['velocity'])} ({attributes['velocity']:.2f} км/ч)
-  ├─ ⏱️ Выносливость: {get_stamina_description(attributes['stamina'])} ({attributes['stamina']:.2f} мин)
-  ├─ 🔄 Восстановление: {get_refractory_description(attributes['refractory_period'])} ({attributes['refractory_period']:.2f} мин)
-  └─ 🎭 Чувствительность: {get_sensitivity_description(attributes['sensitivity'])} ({attributes['sensitivity']:.2f}/10)
+  ├─ 💪 Твёрдость: {get_rigidity_level(attributes["rigidity"])} ({attributes["rigidity"]:.2f}%)
+  ├─ ↪️ Кривизна: {get_curvature_description(attributes["curvature"])} ({attributes["curvature"]:.2f}°)
+  ├─ 🚀 Скорость: {get_velocity_description(attributes["velocity"])} ({attributes["velocity"]:.2f} км/ч)
+  ├─ ⏱️ Выносливость: {get_stamina_description(attributes["stamina"])} ({attributes["stamina"]:.2f} мин)
+  ├─ 🔄 Восстановление: {get_refractory_description(attributes["refractory_period"])} ({attributes["refractory_period"]:.2f} мин)
+  └─ 🎭 Чувствительность: {get_sensitivity_description(attributes["sensitivity"])} ({attributes["sensitivity"]:.2f}/10)
 
 📊 **Статистика**
-  ├─ 📏 Категория размера: {attributes['size_category']}
-  └─ 😍 Рейтинг удовлетворения: {attributes['satisfaction_rating']:.2f}%
-     └─ 💬 {attributes['satisfaction_comment']}
+  ├─ 📏 Категория размера: {attributes["size_category"]}
+  └─ 😍 Рейтинг удовлетворения: {attributes["satisfaction_rating"]:.2f}%
+     └─ 💬 {attributes["satisfaction_comment"]}
 """
 
     return report
 
 
 @Client.on_message(filters.command(["penis", "dick"]), group=1)
-@command_handler(
-    commands=["penis", "dick"],
-    description="Рассчитывает размер пениса пользователя",
-    arguments="[необяз. @ пользователя]",
-    group="NSFW"
-)
+@command_handler(commands=["penis", "dick"], description="Рассчитывает размер пениса пользователя", arguments="[необяз. @ пользователя]", group="NSFW")
 async def dong_command(client: Client, message: Message):
     """Рассчитывает (100% аккуратно) размер вашего члена"""
     try:
-        username = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else (
-                message.from_user.username or message.from_user.first_name
-        )
+        username = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else (message.from_user.username or message.from_user.first_name)
         attributes = calculate_dong_attributes(username)
         image_buffer = plot_attributes(attributes)
         caption = create_report(attributes)

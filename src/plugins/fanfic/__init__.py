@@ -21,16 +21,13 @@ async def initialize():
         system_prompt = ""
 
         if os.path.exists(prompt_path):
-            with open(prompt_path, 'r', encoding='utf-8') as file:
+            with open(prompt_path, "r", encoding="utf-8") as file:
                 system_prompt = file.read()
         else:
             logger.error(f"File not found: {prompt_path}")
 
         # Default configuration
-        default_config = {
-            "FANFIC_SYSTEM_PROMPT": system_prompt,
-            "FANFIC_MODEL_NAME": "x-ai/grok-2-1212"
-        }
+        default_config = {"FANFIC_SYSTEM_PROMPT": system_prompt, "FANFIC_MODEL_NAME": "x-ai/grok-2-1212"}
 
         # Register plugin configuration
         await config_repo.register_plugin_config("fanfic", default_config)

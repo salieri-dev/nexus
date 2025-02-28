@@ -1,4 +1,5 @@
 """Permission decorators for command handlers"""
+
 from functools import wraps
 
 from pyrogram.enums import ChatType
@@ -21,10 +22,7 @@ def requires_setting(setting: str):
             if message.chat.type != ChatType.PRIVATE:
                 # Check if setting is enabled
                 if not await get_chat_setting(message.chat.id, setting):
-                    return await message.reply_text(
-                        f"❌ В данном чате нет прав на {setting}. Включите через /config",
-                        quote=True
-                    )
+                    return await message.reply_text(f"❌ В данном чате нет прав на {setting}. Включите через /config", quote=True)
 
             # Proceed with the handler
             return await func(client, message, *args, **kwargs)

@@ -39,11 +39,9 @@ async def generate_fanfic(topic: str) -> Optional[FanficResponse]:
     open_router = OpenRouter().client
 
     # Create the completion request using Pydantic model
-    completion = await open_router.beta.chat.completions.parse(messages=[{"role": "system", "content": system_prompt},
-                                                                         {"role": "user",
-                                                                          "content": f"Создай фанфик на тему '{topic}'. Это должно быть в формате JSON обязательно по схеме что тебе предоставляю я."}],
-                                                               model=model_name, temperature=0.8, max_tokens=4000,
-                                                               response_format=FanficResponse)
+    completion = await open_router.beta.chat.completions.parse(
+        messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"Создай фанфик на тему '{topic}'. Это должно быть в формате JSON обязательно по схеме что тебе предоставляю я."}], model=model_name, temperature=0.8, max_tokens=4000, response_format=FanficResponse
+    )
     log.info(completion)
     # The response is already parsed into FanficResponse model
     fanfic_response = completion.choices[0].message.parsed

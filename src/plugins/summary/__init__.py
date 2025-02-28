@@ -20,7 +20,7 @@ async def initialize():
         bot_config_repo = BotConfigRepository(db_client)
         peer_config_repo = PeerConfigRepository(db_client.client)
         summary_repo = SummaryRepository(db_client.client)
-        
+
         # Create indexes for summary repository
         await summary_repo.create_indexes()
 
@@ -29,27 +29,23 @@ async def initialize():
         system_prompt = ""
 
         if os.path.exists(prompt_path):
-            with open(prompt_path, 'r', encoding='utf-8') as file:
+            with open(prompt_path, "r", encoding="utf-8") as file:
                 system_prompt = file.read()
         else:
             logger.error(f"File not found: {prompt_path}")
 
         # Default configuration
-        default_config = {
-            "SUMMARY_SYSTEM_PROMPT": system_prompt,
-            "SUMMARY_MODEL_NAME": "openai/gpt-4o-mini",
-            "SUMMARY_MIN_MESSAGES_THRESHOLD": 60
-        }
+        default_config = {"SUMMARY_SYSTEM_PROMPT": system_prompt, "SUMMARY_MODEL_NAME": "openai/gpt-4o-mini", "SUMMARY_MIN_MESSAGES_THRESHOLD": 60}
 
         # Register plugin configuration
         await bot_config_repo.register_plugin_config("summary", default_config)
-        
+
         # Register peer config parameters
         register_parameters()
-        
+
         # Initialize new parameters for existing peers if needed
         await peer_config_repo.initialize_new_params()
-        
+
         logger.info("Summary plugin configuration initialized")
 
     except Exception as e:

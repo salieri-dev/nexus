@@ -6,14 +6,12 @@ from src.utils.credentials import Credentials
 
 log = get_logger(name=__name__)
 
-HEADERS = {
-    "HTTP-Referer": "http://salieri.dev",
-    "X-Title": "Nexus"
-}
+HEADERS = {"HTTP-Referer": "http://salieri.dev", "X-Title": "Nexus"}
 
 
 class OpenRouter:
     """Base OpenAI service providing core functionality"""
+
     _instance = None
 
     def __new__(cls):
@@ -41,12 +39,7 @@ class OpenRouter:
             proxy_url = f"socks5://{proxy_config.host}:{proxy_config.port}"
             http_client_args["proxy"] = proxy_url
 
-        self._client = AsyncOpenAI(
-            http_client=httpx.AsyncClient(**http_client_args),
-            api_key=credentials.api.openrouter_key,
-            base_url="https://openrouter.ai/api/v1",
-            default_headers=HEADERS
-        )
+        self._client = AsyncOpenAI(http_client=httpx.AsyncClient(**http_client_args), api_key=credentials.api.openrouter_key, base_url="https://openrouter.ai/api/v1", default_headers=HEADERS)
 
     @property
     def client(self) -> AsyncOpenAI:

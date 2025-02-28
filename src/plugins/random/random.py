@@ -31,7 +31,7 @@ MAGIC_8BALL_RESPONSES = [
     "Мой ответ — «нет»",
     "По моим данным — «нет»",
     "Перспективы не очень хорошие",
-    "Весьма сомнительно"
+    "Весьма сомнительно",
 ]
 
 
@@ -44,21 +44,21 @@ async def choice_command(client: Client, message: Message):
     try:
         # Get the text after the command
         command_parts = message.text.split(maxsplit=1)
-        
+
         if len(command_parts) < 2:
             await message.reply_text("Пожалуйста, укажите варианты через точку с запятой (;)", quote=True)
             return
-            
+
         options_text = command_parts[1]
         options = [option.strip() for option in options_text.split(";") if option.strip()]
-        
+
         if not options:
             await message.reply_text("Не удалось найти варианты. Укажите их через точку с запятой (;)", quote=True)
             return
-            
+
         chosen_option = random.choice(options)
         await message.reply_text(f"🎲 {chosen_option}", quote=True)
-        
+
     except Exception as e:
         log.error(f"Error in choice command: {e}")
         await message.reply_text("Произошла ошибка при выборе варианта.", quote=True)
@@ -114,11 +114,11 @@ async def random_command(client: Client, message: Message):
     """
     try:
         command_parts = message.text.split()
-        
+
         # Default range
         min_value = 1
         max_value = 100
-        
+
         # Parse arguments
         if len(command_parts) >= 3:
             try:
@@ -133,14 +133,14 @@ async def random_command(client: Client, message: Message):
             except ValueError:
                 await message.reply_text("Пожалуйста, укажите числовое значение для максимума.", quote=True)
                 return
-                
+
         # Ensure min is less than max
         if min_value > max_value:
             min_value, max_value = max_value, min_value
-            
+
         result = random.randint(min_value, max_value)
         await message.reply_text(f"🎲 ({min_value}-{max_value}): {result}", quote=True)
-        
+
     except Exception as e:
         log.error(f"Error in random command: {e}")
         await message.reply_text("Произошла ошибка при генерации случайного числа.", quote=True)

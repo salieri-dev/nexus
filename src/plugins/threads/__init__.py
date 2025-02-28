@@ -25,25 +25,20 @@ async def initialize():
 
         # Read bugurt prompt
         if os.path.exists(bugurt_prompt_path):
-            with open(bugurt_prompt_path, 'r', encoding='utf-8') as file:
+            with open(bugurt_prompt_path, "r", encoding="utf-8") as file:
                 bugurt_prompt = file.read()
         else:
             logger.error(f"File not found: {bugurt_prompt_path}")
 
         # Read greentext prompt
         if os.path.exists(greentext_prompt_path):
-            with open(greentext_prompt_path, 'r', encoding='utf-8') as file:
+            with open(greentext_prompt_path, "r", encoding="utf-8") as file:
                 greentext_prompt = file.read()
         else:
             logger.error(f"File not found: {greentext_prompt_path}")
 
         # Default configuration
-        default_config = {
-            "BUGURT_SYSTEM_PROMPT": bugurt_prompt,
-            "GREENTEXT_SYSTEM_PROMPT": greentext_prompt,
-            "BUGURT_MODEL_NAME": "anthropic/claude-3.5-sonnet:beta",
-            "GREENTEXT_MODEL_NAME": "anthropic/claude-3.5-sonnet:beta"
-        }
+        default_config = {"BUGURT_SYSTEM_PROMPT": bugurt_prompt, "GREENTEXT_SYSTEM_PROMPT": greentext_prompt, "BUGURT_MODEL_NAME": "anthropic/claude-3.5-sonnet:beta", "GREENTEXT_MODEL_NAME": "anthropic/claude-3.5-sonnet:beta"}
 
         # Register plugin configuration
         await config_repo.register_plugin_config("threads", default_config)

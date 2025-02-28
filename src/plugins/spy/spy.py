@@ -26,7 +26,7 @@ def get_user_identifier(message) -> str:
 def get_message_content(message) -> str:
     """Extract and format message content."""
     content = message.text or message.caption or "None"
-    content = content.replace('\n', ' ').strip()
+    content = content.replace("\n", " ").strip()
 
     if message.media:
         media_type = str(message.media).replace("MessageMediaType.", "")
@@ -55,7 +55,7 @@ async def message(client: Client, message):
 
         # Prepare message data with created_at
         message_data = serialize(message)
-        message_data['created_at'] = datetime.now(timezone.utc)
+        message_data["created_at"] = datetime.now(timezone.utc)
 
         # Store message
         await message_repo.insert_message(message_data)
@@ -66,19 +66,9 @@ async def message(client: Client, message):
         chat_title = "DM" if message.chat.type == "private" else message.chat.title
 
         # Include peer config status in logging
-        config_status = {k: v for k, v in peer_config.items() if k != 'chat_id'}
+        config_status = {k: v for k, v in peer_config.items() if k != "chat_id"}
 
-        log.info(
-            f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id}]: {msg_content}",
-            message_id=message.id,
-            chat_id=message.chat.id,
-            message_type=type(message).__name__,
-            peer_config=config_status
-        )
+        log.info(f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id}]: {msg_content}", message_id=message.id, chat_id=message.chat.id, message_type=type(message).__name__, peer_config=config_status)
 
     except Exception as e:
-        log.error(
-            "Error logging message",
-            error=str(e),
-            message_id=getattr(message, 'id', None)
-        )
+        log.error("Error logging message", error=str(e), message_id=getattr(message, "id", None))

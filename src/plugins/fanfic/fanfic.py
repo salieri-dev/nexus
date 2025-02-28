@@ -17,12 +17,12 @@ log = get_logger(__name__)
 
 
 @Client.on_message(filters.command(["fanfic"]), group=1)
-@requires_setting('nsfw')
+@requires_setting("nsfw")
 @command_handler(commands=["fanfic"], arguments="[тема]", description="Создать фанфик", group="Мемы")
 @rate_limit(
     operation="fanfic_handler",
     window_seconds=45,  # One request per 45 seconds
-    on_rate_limited=lambda message: message.reply("🕒 Подождите 45 секунд перед следующим запросом!")
+    on_rate_limited=lambda message: message.reply("🕒 Подождите 45 секунд перед следующим запросом!"),
 )
 async def fanfic_handler(client: Client, message: Message):
     """Handler for /fanfic command"""
@@ -59,20 +59,10 @@ async def fanfic_handler(client: Client, message: Message):
     formatted_response = f"<b>{title}</b>\n\n{content}"
 
     # Get model name from config
-    model_name = await config_repo.get_plugin_config_value("fanfic", "FANFIC_MODEL_NAME",
-                                                           "anthropic/claude-3.5-sonnet:beta")
+    model_name = await config_repo.get_plugin_config_value("fanfic", "FANFIC_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
 
     # Store fanfic data in database
-    fanfic_record = {
-        "user_id": message.from_user.id,
-        "chat_id": message.chat.id,
-        "topic": topic,
-        "title": title,
-        "content": content,
-        "timestamp": datetime.utcnow(),
-        "model": model_name,
-        "temperature": 0.8
-    }
+    fanfic_record = {"user_id": message.from_user.id, "chat_id": message.chat.id, "topic": topic, "title": title, "content": content, "timestamp": datetime.utcnow(), "model": model_name, "temperature": 0.8}
     await repository.save_fanfic(fanfic_record)
 
     # Send the result
