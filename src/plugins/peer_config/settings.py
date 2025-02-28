@@ -1,8 +1,9 @@
+# src/plugins/peer_config/settings.py
 from pyrogram import Client, filters
-from pyrogram.enums import ChatType
+from pyrogram.enums import ChatType, ChatMemberStatus
 from pyrogram.types import Message
 from structlog import get_logger
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 
 from src.database.client import DatabaseClient
 from src.database.repository.peer_config_repository import PeerConfigRepository
@@ -17,7 +18,10 @@ log = get_logger(__name__)
 
 
 async def get_chat_setting(chat_id: int, setting_key: str, default=False) -> any:
-    """Get a specific setting value for a chat.
+    """
+    Get a specific setting value for a chat.
+    
+    This is a pass-through to the framework function for backward compatibility.
     
     Args:
         chat_id: The chat ID to get peer_config for
@@ -28,7 +32,6 @@ async def get_chat_setting(chat_id: int, setting_key: str, default=False) -> any
         The setting value with the same type as the default (bool or int)
     """
     try:
-        # Use the framework function - it handles command name mapping internally
         return await framework_get_setting(chat_id, setting_key, default)
     except Exception as e:
         log.error("Error getting chat setting",
@@ -43,9 +46,6 @@ def format_settings(config: dict) -> str:
     # Remove chat_id and _id from display
     display_config = {k: v for k, v in config.items() if k not in ['chat_id', '_id']}
 
-    # Format each setting
-    settings_text = ["📋 Текущие настройки:"]
-
     # Get all registered parameters
     param_registry = get_param_registry()
     
@@ -59,7 +59,8 @@ def format_settings(config: dict) -> str:
         )
     )
 
-    # Display each setting with info from the registry
+    # Format each setting with info from the registry
+    settings_text = ["📋 Текущие настройки:"]
     for key, value in sorted_settings:
         # Skip if not in registry (might be legacy or internal)
         if key not in param_registry:
@@ -103,10 +104,8 @@ def get_help_text() -> str:
         "📝 Доступные настройки (используйте эти значения в командах):\n"
     ]
     
-    # Get all registered parameters
+    # Get all registered parameters and sort them
     param_registry = get_param_registry()
-    
-    # Sort parameters by type
     sorted_params = sorted(
         param_registry.items(),
         key=lambda item: (
@@ -118,7 +117,6 @@ def get_help_text() -> str:
     
     # Add help text for each parameter
     for i, (param_name, param_info) in enumerate(sorted_params, 1):
-        # Get command name from parameter info
         command = param_info.command_name
         
         # Get plugin info if applicable
@@ -138,6 +136,97 @@ def get_help_text() -> str:
     
     return "\n".join(help_text)
 
+
+async def is_user_admin(client: Client, chat_id: int, user_id: int) -> bool:
+    """Check if user is an admin in the chat."""
+    try:
+        chat_member = await client.get_chat_member(
+            chat_id=chat_id,
+            user_id=user_id
+        )
+        allowed_statuses = [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]
+        return chat_member.status in allowed_statuses
+    except Exception as e:
+        log.error("Error checking admin status", error=str(e))
+        return False
+
+
+async def handle_show_settings(chat_id: int) -> str:
+    """Handle request to show current settings."""
+    try:
+        # Initialize repository
+        db_client = DatabaseClient.get_instance()
+        config_repo = PeerConfigRepository(db_client.client)
+
+        # Get current peer_config and format it
+        config = await config_repo.get_peer_config(chat_id)
+        settings_text = format_settings(config)
+        help_text = get_help_text()
+        return f"{settings_text}\n\n{help_text}"
+    except Exception as e:
+        log.error("Error showing settings", error=str(e), chat_id=chat_id)
+        return "❌ Произошла ошибка при получении настроек."
+
+
+async def handle_setting_change(chat_id: int, action: str, setting: str) -> str:
+    """Handle changing a setting value."""
+    try:
+        # Get parameter info
+        param_name = PeerConfigModel.get_param_by_command(action)
+        
+        # If action isn't a setting name, it might be enable/disable
+        if not param_name and action in ['enable', 'disable']:
+            param_name = PeerConfigModel.get_param_by_command(setting)
+            is_bool_command = True
+        else:
+            is_bool_command = False
+            
+        # Check if setting exists
+        if not param_name:
+            return "❌ Неверная настройка. Используйте /config для просмотра доступных настроек."
+            
+        # Get parameter info
+        param_info = get_param_info(param_name)
+        if not param_info:
+            return "❌ Неверная настройка. Используйте /config для просмотра доступных настроек."
+        
+        # Handle boolean settings (enable/disable)
+        if is_bool_command:
+            if not isinstance(param_info.default, bool):
+                return f"❌ Настройка '{param_info.display_name}' не является булевой. Используйте формат `/config {param_info.command_name} значение`."
+                
+            new_value = action == 'enable'
+            
+        # Handle non-boolean settings
+        else:
+            if isinstance(param_info.default, bool):
+                return f"❌ Настройка '{param_info.display_name}' является булевой. Используйте формат `/config enable {param_info.command_name}` или `/config disable {param_info.command_name}`."
+                
+            # Validate and convert the value
+            is_valid, new_value = PeerConfigModel.validate_param_value(param_name, setting)
+            if not is_valid:
+                return f"❌ Неверное значение для {param_info.display_name}."
+        
+        # Update the config
+        updated_config = await update_chat_setting(chat_id, param_name, new_value)
+        
+        # Format the response
+        settings_text = format_settings(updated_config)
+        
+        log.info(
+            "Updated peer_config for chat",
+            chat_id=chat_id,
+            setting=param_name,
+            value=new_value
+        )
+        
+        return f"✨ Настройки обновлены!\n\n{settings_text}"
+        
+    except Exception as e:
+        log.error("Error handling setting change", error=str(e), chat_id=chat_id)
+        return "❌ Произошла ошибка при обновлении настроек."
+
+
 @Client.on_message(filters.command(["config"]), group=1)
 @command_handler(
     commands=["config"],
@@ -145,7 +234,7 @@ def get_help_text() -> str:
     group="Утилиты"
 )
 async def settings_handler(client: Client, message: Message):
-    """Handle /config command."""
+    """Handle /config command to manage chat settings."""
     try:
         # Check if private chat
         if message.chat.type == ChatType.PRIVATE:
@@ -153,134 +242,30 @@ async def settings_handler(client: Client, message: Message):
                 "❌ Настройки недоступны в личных сообщениях. В личных чатах NSFW и транскрибация всегда включены.")
             return
 
-        # Initialize repository
-        db_client = DatabaseClient.get_instance()
-        config_repo = PeerConfigRepository(db_client.client)
-
-        # Get current peer_config
-        config = await config_repo.get_peer_config(message.chat.id)
-
-        # If no additional arguments, display current peer_config and help
+        # If no additional arguments, just display current settings and help
         if len(message.command) == 1:
-            settings_text = format_settings(config)
-            help_text = get_help_text()
-            await message.reply_text(f"{settings_text}\n\n{help_text}")
+            response_text = await handle_show_settings(message.chat.id)
+            await message.reply_text(response_text)
             return
 
-        # Handle enable/disable commands
+        # For changing settings, check if user is admin or owner
+        if not await is_user_admin(client, message.chat.id, message.from_user.id):
+            await message.reply_text(
+                "❌ Только администраторы чата могут изменять настройки."
+            )
+            return
+            
+        # Handle setting changes
         if len(message.command) < 3:
             await message.reply_text(get_help_text())
             return
 
         action = message.command[1].lower()
         setting = message.command[2].lower()
-
-        # Direct value setting (like "/config dbai_submission_window 60")
-        if action not in ['enable', 'disable']:
-            # Get parameter info for the action (which is actually the setting name)
-            param_name = PeerConfigModel.get_param_by_command(action)
-            if not param_name:
-                await message.reply_text(
-                    "❌ Неверная настройка. Используйте /config для просмотра доступных настроек.")
-                return
-                
-            param_info = get_param_info(param_name)
-            if not param_info:
-                await message.reply_text(
-                    "❌ Неверная настройка. Используйте /config для просмотра доступных настроек.")
-                return
-                
-            # Check if it's a non-boolean parameter
-            if not isinstance(param_info.default, bool):
-                try:
-                    # Use our custom validation method
-                    is_valid, new_value = PeerConfigModel.validate_param_value(param_name, setting)
-                    if not is_valid:
-                        await message.reply_text(f"❌ Неверное значение для {param_info.display_name}.")
-                        return
-                        
-                    # Update the parameter
-                    updated_config = await config_repo.update_peer_config(
-                        message.chat.id,
-                        {param_name: new_value}
-                    )
-                    
-                    # Show success message
-                    settings_text = format_settings(updated_config)
-                    await message.reply_text(
-                        f"✨ Настройки обновлены!\n\n{settings_text}"
-                    )
-                    
-                    log.info(
-                        "Updated peer_config for chat",
-                        chat_id=message.chat.id,
-                        setting=param_name,
-                        value=new_value
-                    )
-                    return
-                except (ValueError, IndexError):
-                    await message.reply_text(f"❌ Неверное значение для {param_info.display_name}.")
-                    return
-            else:
-                # It's a boolean but not using enable/disable syntax
-                await message.reply_text(
-                    f"❌ Настройка '{param_info.display_name}' является булевой. Используйте формат `/config enable {param_info.command_name}` или `/config disable {param_info.command_name}`."
-                )
-                return
         
-        # Handle enable/disable for boolean settings
-        if action not in ['enable', 'disable']:
-            await message.reply_text(
-                "❌ Неверное действие. Используйте 'enable', 'disable', или прямое значение для числовых настроек.")
-            return
-            
-        # Get parameter info for the setting
-        param_name = PeerConfigModel.get_param_by_command(setting)
-        if not param_name:
-            await message.reply_text(
-                "❌ Неверная настройка. Используйте /config для просмотра доступных настроек.")
-            return
-            
-        param_info = get_param_info(param_name)
-        if not param_info:
-            await message.reply_text(
-                "❌ Неверная настройка. Используйте /config для просмотра доступных настроек.")
-            return
-            
-        # Make sure it's a boolean setting
-        if not isinstance(param_info.default, bool):
-            await message.reply_text(
-                f"❌ Настройка '{param_info.display_name}' не является булевой. Используйте формат `/config {param_info.command_name} значение`."
-            )
-            return
-
-        # Update the boolean setting using our validation method
-        is_valid, new_value = PeerConfigModel.validate_param_value(param_name, action == 'enable')
-        if not is_valid:
-            await message.reply_text(
-                f"❌ Ошибка валидации для настройки '{param_info.display_name}'."
-            )
-            return
-        
-        # Update config
-        updated_config = await config_repo.update_peer_config(
-            message.chat.id,
-            {param_name: new_value}
-        )
-
-        # Show updated peer_config
-        settings_text = format_settings(updated_config)
-        await message.reply_text(
-            f"✨ Настройки обновлены!\n\n{settings_text}"
-        )
-
-        log.info(
-            "Updated peer_config for chat",
-            chat_id=message.chat.id,
-            setting=param_name,
-            value=new_value
-        )
+        response = await handle_setting_change(message.chat.id, action, setting)
+        await message.reply_text(response)
 
     except Exception as e:
-        log.error("Error handling peer_config command", error=str(e))
-        await message.reply_text("❌ Произошла ошибка при обновлении настроек.")
+        log.error("Error handling config command", error=str(e))
+        await message.reply_text("❌ Произошла ошибка при обработке команды настроек.")

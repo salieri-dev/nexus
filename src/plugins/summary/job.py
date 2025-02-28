@@ -14,6 +14,7 @@ from src.database.repository.message_repository import MessageRepository
 from src.database.repository.peer_config_repository import PeerConfigRepository
 from src.services.openrouter import OpenRouter
 from .models import SummarizationResponse
+from .repository import SummaryRepository
 
 _summary_job = None
 log = get_logger(__name__)
@@ -36,12 +37,15 @@ class InsufficientDataError(Exception):
     """Raised when there are not enough messages to generate a summary"""
     pass
 
-
 async def init_summary(message_repository: MessageRepository, config_repository: PeerConfigRepository, client=None):
     """Initialize the summary job singleton."""
     global _summary_job
     if _summary_job is None:
-        _summary_job = SummaryJob(message_repository, config_repository, client)
+        # Get database client for summary repository
+        db_client = DatabaseClient.get_instance()
+        summary_repository = SummaryRepository(db_client.client)
+        
+        _summary_job = SummaryJob(message_repository, config_repository, summary_repository, client)
         # Initialize configuration
         await _summary_job.initialize_config()
     elif client and not _summary_job.client:
@@ -50,15 +54,17 @@ async def init_summary(message_repository: MessageRepository, config_repository:
 
 
 class SummaryJob:
-    def __init__(self, message_repository, config_repository, client=None):
+    def __init__(self, message_repository, config_repository, summary_repository, client=None):
         self.message_repository = message_repository
         self.config_repository = config_repository
+        self.summary_repository = summary_repository
         self.scheduler = AsyncIOScheduler()
         self.openrouter = OpenRouter()
         self.client = client
 
         # Get database client for config repository
         db_client = DatabaseClient.get_instance()
+        self.config_repo = BotConfigRepository(db_client)
         self.config_repo = BotConfigRepository(db_client)
 
         # These will be loaded from config in async init
@@ -332,7 +338,17 @@ class SummaryJob:
                 json_str = summary.model_dump_json(indent=2)
                 f.write(json_str)
 
-            log.info("Summary files written successfully",
+            # Store summary in database
+            themes_data = summary.model_dump().get("themes", [])
+            await self.summary_repository.store_summary(
+                chat_id=chat_id,
+                chat_title=chat_title,
+                summary_date=date,
+                themes=themes_data,
+                message_count=len(messages)
+            )
+
+            log.info("Summary files written and stored in database",
                      chat_id=chat_id,
                      chat_title=chat_title,
                      log_filename=filename,
