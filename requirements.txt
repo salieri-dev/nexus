@@ -22,3 +22,4 @@ scipy
 scikit-learn
 pandas
 seaborn
+pykeyboard

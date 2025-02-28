@@ -22,7 +22,7 @@ def requires_setting(setting: str):
                 # Check if setting is enabled
                 if not await get_chat_setting(message.chat.id, setting):
                     return await message.reply_text(
-                        f"❌ В данном чате нет прав на {setting}. Включите через /settings",
+                        f"❌ В данном чате нет прав на {setting}. Включите через /config",
                         quote=True
                     )
 
