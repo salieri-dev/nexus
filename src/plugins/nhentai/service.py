@@ -1,19 +1,224 @@
+"""Service layer for nhentai plugin"""
+
 import asyncio
+import io
 import math
 import os
 from io import BytesIO
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import httpx
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
-
+from pyrogram.types import InputMediaPhoto, Message
 from structlog import get_logger
-from .models import Images, NhentaiGallery, Tag, Title
+
+from src.config.framework import get_chat_setting
+from src.database.client import DatabaseClient
+from src.plugins.nhentai.constants import BLACKLIST_TAGS, PROXY_URL
+from src.plugins.nhentai.models import Images, NhentaiGallery, Tag, Title
+from src.plugins.nhentai.repository import NhentaiRepository
 
 log = get_logger(__name__)
 
 
+class DownloadError(Exception):
+    """Exception raised when image download fails"""
+    pass
+
+
+class NhentaiService:
+    """Service for nhentai operations"""
+    
+    BASE_URL: str = "https://nhentai.net"
+    
+    @staticmethod
+    def get_repository():
+        """Get nhentai repository instance"""
+        db_client = DatabaseClient.get_instance()
+        return NhentaiRepository(db_client.client)
+    
+    @staticmethod
+    async def get_blur_setting(chat_id: int, message: Message = None) -> bool:
+        """Get nhentai_blur setting from peer_config"""
+        from pyrogram.enums.chat_type import ChatType
+        
+        # Always disable blur (return False) in private chats
+        if message and message.chat.type == ChatType.PRIVATE:
+            return False
+
+        # Otherwise use config value
+        return await get_chat_setting(chat_id, "nhentai_blur", True)
+    
+    @staticmethod
+    async def download_image(url: str, session: httpx.AsyncClient) -> io.BytesIO:
+        """Download image from URL to BytesIO with fallback to alternative domains"""
+        from src.plugins.nhentai.constants import NHENTAI_IMAGE_DOMAINS
+        
+        original_url = url
+        tried_domains = set()
+        
+        # Extract the domain and path from the URL
+        import re
+        match = re.match(r'https?://([^/]+)(/.+)', url)
+        if not match:
+            log.error(f"Invalid URL format: {url}")
+            raise DownloadError(f"Invalid URL format: {url}")
+            
+        domain, path = match.groups()
+        
+        # Try the original domain first
+        domains_to_try = [domain] + [d for d in NHENTAI_IMAGE_DOMAINS if d != domain]
+        
+        for current_domain in domains_to_try:
+            if current_domain in tried_domains:
+                continue
+                
+            tried_domains.add(current_domain)
+            current_url = f"https://{current_domain}{path}"
+            
+            try:
+                proxy_enabled = bool(session._transport._pool._proxy_url) if hasattr(session._transport, "_pool") and hasattr(session._transport._pool, "_proxy_url") else False
+                log.info("Downloading image", extra={"url": current_url, "proxy_enabled": proxy_enabled})
+
+                response = await session.get(current_url)
+
+                if response.status_code == 200:
+                    content_length = len(response.content)
+                    log.info("Image downloaded successfully", extra={"url": current_url, "content_length": content_length, "content_type": response.headers.get("content-type")})
+                    return io.BytesIO(response.content)
+                elif response.status_code == 404:
+                    log.warning("Image not found", extra={"url": current_url, "status_code": 404, "response_headers": dict(response.headers)})
+                    # Continue to next domain
+                    continue
+                else:
+                    log.error("Failed to download image", extra={"url": current_url, "status_code": response.status_code, "response_headers": dict(response.headers), "response_text": response.text if response.headers.get("content-type", "").startswith("text") else None})
+                    # Continue to next domain
+                    continue
+
+            except httpx.TimeoutException as e:
+                log.error("Timeout while downloading image", extra={"url": current_url, "error": str(e), "timeout_seconds": session.timeout.read})
+                # Continue to next domain
+                continue
+            except httpx.NetworkError as e:
+                log.error("Network error while downloading image", extra={"url": current_url, "error": str(e)})
+                # Continue to next domain
+                continue
+            except Exception as e:
+                log.error("Unexpected error while downloading image", extra={"url": current_url, "error": str(e), "error_type": type(e).__name__})
+                # Continue to next domain
+                continue
+        
+        # If we get here, all domains failed
+        log.error(f"All domains failed for image download: {original_url}")
+        raise DownloadError(f"Failed to download image from all available domains. Original URL: {original_url}")
+    
+    @staticmethod
+    def blur_image(image: io.BytesIO) -> io.BytesIO:
+        """Apply blur effect to image"""
+        with Image.open(image) as img:
+            blurred_img = img.filter(ImageFilter.GaussianBlur(radius=30))
+            output = io.BytesIO()
+            blurred_img.save(output, format="JPEG")
+            output.seek(0)
+        return output
+    
+    @staticmethod
+    def generate_output_message(media: NhentaiGallery, chat_id: int, message: Message = None) -> Tuple[List[InputMediaPhoto], bool]:
+        """Generate output message with media and check for blacklisted tags"""
+        from pyrogram.enums.parse_mode import ParseMode
+        
+        link = f"https://nhentai.net/g/{media.id}"
+        caption = f"<b>№{media.id}</b> | <a href='{link}'><b>{media.title.pretty}</b></a>\n\n"
+        caption += f"<b>Pages:</b> {media.num_pages}\n<b>Favorites:</b> {media.num_favorites}\n\n"
+
+        tag_dict: Dict[str, List[str]] = {category: [] for category in ["language", "artist", "group", "parody", "category", "tag"]}
+        [tag_dict[tag.type].append(tag.name) for tag in media.tags if tag.type in tag_dict]
+
+        for category, tags in tag_dict.items():
+            if tags:
+                caption += f"<b>{category.capitalize()}:</b> {', '.join(tags)}\n"
+
+        from datetime import datetime
+        timestamp_to_date = datetime.fromtimestamp(media.upload_date)
+        caption += f"\n<b>Uploaded:</b> {timestamp_to_date.strftime('%Y-%m-%d')}"
+
+        # Check if any blacklisted tags are present
+        has_blacklisted_tag = any(tag in BLACKLIST_TAGS for tag in tag_dict["tag"])
+
+        album = [InputMediaPhoto(media.images.pages[0], caption=caption, parse_mode=ParseMode.HTML)]
+        total_pages = len(media.images.pages)
+        album.extend([InputMediaPhoto(media.images.pages[min(total_pages - 1, max(1, round(total_pages * p / 100)))]) for p in [15, 30, 50, 70, 90] if total_pages >= len(album) + 1])
+
+        return album, has_blacklisted_tag
+    
+    @staticmethod
+    async def send_media_group(client, chat_id: int, album: List[InputMediaPhoto], message: Message, use_proxy: bool = False, blur: bool = False) -> Optional[str]:
+        """Send media group and return error message if any"""
+        try:
+            # Check if blur should be applied based on settings
+            should_blur = blur and await NhentaiService.get_blur_setting(chat_id, message)
+
+            if not should_blur:
+                await message.reply_media_group(media=album, quote=True)
+            else:
+                log.warning("Blacklisted tags detected. Downloading, blurring, and resending images...", extra={"proxy_url": PROXY_URL if use_proxy else None})
+
+                client_config = {"timeout": httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0), "proxy": PROXY_URL if use_proxy else None, "follow_redirects": True}
+
+                async with httpx.AsyncClient(**client_config) as session:
+                    new_album = []
+                    for media in album:
+                        try:
+                            image = await NhentaiService.download_image(media.media, session)
+                            blurred_image = NhentaiService.blur_image(image)
+                            new_media = InputMediaPhoto(blurred_image, caption=media.caption, parse_mode=media.parse_mode)
+                            new_album.append(new_media)
+                        except Exception as img_e:
+                            log.error("Failed to process image", extra={"error": str(img_e), "media_url": media.media, "proxy_enabled": bool(use_proxy), "blur_enabled": blur})
+                            raise
+
+                await message.reply_media_group(media=new_album, quote=True)
+            return None
+
+        except Exception as e:
+            error_msg = str(e)
+            if "WEBPAGE" in error_msg:
+                try:
+                    log.warning("Failed to send images by URL. Downloading and resending...", extra={"error": error_msg, "album_size": len(album), "blur_enabled": blur})
+
+                    client_config = {"timeout": httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0), "proxy": PROXY_URL if use_proxy else None, "follow_redirects": True}
+
+                    async with httpx.AsyncClient(**client_config) as session:
+                        new_album = []
+                        for i, media in enumerate(album):
+                            try:
+                                image = await NhentaiService.download_image(media.media, session)
+                                if blur and await NhentaiService.get_blur_setting(chat_id, message):
+                                    image = NhentaiService.blur_image(image)
+                                new_media = InputMediaPhoto(image, caption=media.caption, parse_mode=media.parse_mode)
+                                new_album.append(new_media)
+                            except Exception as img_e:
+                                log.error(f"Failed to process image {i + 1}/{len(album)}", extra={"error": str(img_e), "media_url": media.media, "blur_enabled": blur})
+                                raise
+
+                    await message.reply_media_group(media=new_album, quote=True)
+                    return None
+                except Exception as download_e:
+                    log.error("Failed to download and process images", extra={"error": str(download_e), "proxy_enabled": bool(use_proxy), "blur_enabled": blur})
+                    return f"Failed to download and send images: {str(download_e)}"
+
+            log.error("Failed to send media group", extra={"error": error_msg, "album_size": len(album), "proxy_enabled": bool(use_proxy), "blur_enabled": blur})
+            return f"Failed to send media group: {error_msg}"
+    
+    @staticmethod
+    def truncate_title(title: str, max_length: int = 40) -> str:
+        """Truncate title to max length with ellipsis"""
+        return (title[: max_length - 3] + "...") if len(title) > max_length else title
+
+
 class NhentaiAPI:
+    """API client for nhentai.net"""
+    
     BASE_URL: str = "https://nhentai.net"
     PROXY_URL: Optional[str] = f"socks5://{os.getenv('PROXY_HOST')}:{os.getenv('PROXY_PORT')}" if os.getenv("USE_PROXY", "false").lower() == "true" else None
 
@@ -80,12 +285,21 @@ class NhentaiAPI:
     @staticmethod
     def parse_images(data: dict) -> Images:
         """Construct image URLs (pages, cover, thumbnail) for the given gallery"""
+        from src.plugins.nhentai.constants import NHENTAI_IMAGE_DOMAINS, NHENTAI_THUMB_DOMAINS
+        
         media_id = data["media_id"]
-        pages = [f"https://i.nhentai.net/galleries/{media_id}/{i + 1}.{NhentaiAPI.get_extension(page['t'])}" for i, page in enumerate(data["images"]["pages"])]
+        # Use the first domain in the list for initial URLs
+        image_domain = NHENTAI_IMAGE_DOMAINS[0]
+        thumb_domain = NHENTAI_THUMB_DOMAINS[0]
+        
+        pages = [f"https://{image_domain}/galleries/{media_id}/{i + 1}.{NhentaiAPI.get_extension(page['t'])}" for i, page in enumerate(data["images"]["pages"])]
 
-        cover_url = f"https://i.nhentai.net/galleries/{media_id}/cover.jpg"
-        thumbnail_url = f"https://t.nhentai.net/galleries/{media_id}/thumb.jpg"
-
+        # Use the appropriate format for cover and thumbnail
+        # The format can be .jpg, .webp, or .webp.webp depending on the server
+        cover_url = f"https://{thumb_domain}/galleries/{media_id}/cover.webp.webp"
+        thumbnail_url = f"https://{thumb_domain}/galleries/{media_id}/thumb.webp.webp"
+        
+        log.info(f"Images: {len(pages)} pages, cover: {cover_url}, thumbnail: {thumbnail_url}")
         return Images(pages=pages, cover=cover_url, thumbnail=thumbnail_url)
 
     @staticmethod
@@ -103,6 +317,8 @@ class NhentaiAPI:
 
 
 class CollageCreator:
+    """Creates collages of nhentai thumbnails"""
+    
     def __init__(self, thumb_width=500, thumb_height=765, thumbnails_per_row=3, num_rows=4):
         self.thumb_width = thumb_width
         self.thumb_height = thumb_height
@@ -187,8 +403,14 @@ class CollageCreator:
             responses = await asyncio.gather(*tasks, return_exceptions=True)
 
             for i, (post, response) in enumerate(zip(posts[start_index:end_index], responses)):
-                if isinstance(response, Exception) or response.status_code == 404:
-                    log.error(f"Error fetching thumbnail for post {post.id}: {str(response)}")
+                if isinstance(response, Exception):
+                    error_msg = f"Exception: {type(response).__name__}: {str(response)}"
+                    log.error(f"Error fetching thumbnail for post {post.id}: {error_msg}")
+                    img = Image.new("RGB", (self.thumb_width, self.thumb_height), (200, 200, 200))
+                    img = self.draw_centered_text(img, "Error")
+                    img = self.add_text_to_image(img, f"№ {post.id}")
+                elif hasattr(response, 'status_code') and response.status_code == 404:
+                    log.error(f"Error fetching thumbnail for post {post.id}: 404 Not Found")
                     img = Image.new("RGB", (self.thumb_width, self.thumb_height), (200, 200, 200))
                     img = self.draw_centered_text(img, "404")
                     img = self.add_text_to_image(img, f"№ {post.id}")
@@ -224,8 +446,14 @@ class CollageCreator:
             responses = await asyncio.gather(*tasks, return_exceptions=True)
 
             for i, (post, response) in enumerate(zip(posts, responses)):
-                if isinstance(response, Exception) or response.status_code == 404:
-                    log.error(f"Error fetching thumbnail for post {post.id}: {str(response)}")
+                if isinstance(response, Exception):
+                    error_msg = f"Exception: {type(response).__name__}: {str(response)}"
+                    log.error(f"Error fetching thumbnail for post {post.id}: {error_msg}")
+                    img = Image.new("RGB", (self.thumb_width, self.thumb_height), (200, 200, 200))
+                    img = self.draw_centered_text(img, "Error")
+                    img = self.add_text_to_image(img, f"№ {post.id}")
+                elif hasattr(response, 'status_code') and response.status_code == 404:
+                    log.error(f"Error fetching thumbnail for post {post.id}: 404 Not Found")
                     img = Image.new("RGB", (self.thumb_width, self.thumb_height), (200, 200, 200))
                     img = self.draw_centered_text(img, "404")
                     img = self.add_text_to_image(img, f"№ {post.id}")
