@@ -25,7 +25,7 @@ async def fanfic_handler(client: Client, message: Message):
     """Handler for /fanfic command"""
     # Get the topic from the command
     topic = " ".join(message.command[1:]) if len(message.command) > 1 else ""
-    
+
     # Validate topic
     is_valid, error_message = await FanficService.validate_topic(topic)
     if not is_valid:
@@ -43,12 +43,7 @@ async def fanfic_handler(client: Client, message: Message):
         return
 
     # Save to database
-    await FanficService.save_fanfic_to_db(
-        topic=topic,
-        fanfic_response=fanfic_response,
-        user_id=message.from_user.id,
-        chat_id=message.chat.id
-    )
+    await FanficService.save_fanfic_to_db(topic=topic, fanfic_response=fanfic_response, user_id=message.from_user.id, chat_id=message.chat.id)
 
     # Format and send the response
     await FanficService.format_and_send_response(message, fanfic_response, reply_msg)

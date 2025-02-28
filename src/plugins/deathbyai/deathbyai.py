@@ -126,7 +126,7 @@ async def handle_strategy(client: Client, message: Message):
             return
 
         # Submit strategy
-        success, response = await DeathByAIService.submit_strategy(chat_id=message.chat.id, user_id=message.from_user.id, username=message.from_user.mention(), strategy=message.text)
+        success = await DeathByAIService.submit_strategy(chat_id=message.chat.id, user_id=message.from_user.id, username=message.from_user.mention(), strategy=message.text)
 
         if success:
             try:

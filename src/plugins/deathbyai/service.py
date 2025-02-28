@@ -32,25 +32,25 @@ log = get_logger(__name__)
 
 class DeathByAIService:
     """Service for managing Death by AI game logic"""
-    
+
     @staticmethod
     def get_repository():
         """Get DeathByAI repository instance"""
         db_client = DatabaseClient.get_instance()
         return DeathByAIRepository(db_client.client)
-    
+
     @staticmethod
     def get_config_repository():
         """Get bot config repository instance"""
         db_client = DatabaseClient.get_instance()
         return BotConfigRepository(db_client)
-    
+
     @staticmethod
     async def start_game(chat_id: int, message_id: int, initiator_id: int) -> Optional[Dict[str, Any]]:
         """Start a new game if none is active"""
         # Get repository instance
         repository = DeathByAIService.get_repository()
-        
+
         # Check for active game
         active_game = await repository.get_active_game(chat_id)
         if active_game:
@@ -110,7 +110,7 @@ class DeathByAIService:
         """Submit a player's strategy for the active game"""
         # Get repository instance
         repository = DeathByAIService.get_repository()
-        
+
         game = await repository.get_active_game(chat_id)
         if not game:
             return False, "❌ В этом чате нет активной игры"
@@ -123,7 +123,7 @@ class DeathByAIService:
         # Add strategy
         success = await repository.add_player_strategy(game_id=game["_id"], user_id=user_id, username=username, strategy=strategy)
 
-        return success, "✅ Ваша стратегия принята!" if success else "❌ Не удалось сохранить стратегию"
+        return success
 
     @staticmethod
     async def evaluate_strategy(scenario: str, strategy: str, player_name: str = "") -> Optional[Dict[str, str]]:
@@ -131,7 +131,7 @@ class DeathByAIService:
         try:
             # Get config repository
             config_repo = DeathByAIService.get_config_repository()
-            
+
             # Get config values
             model_name = await config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_MODEL_NAME", "anthropic/claude-3.5-sonnet:beta")
             temperature = await config_repo.get_plugin_config_value("deathbyai", "DEATHBYAI_EVALUATION_TEMPERATURE", 0.7)
@@ -139,7 +139,7 @@ class DeathByAIService:
 
             # Get OpenRouter client
             openrouter = OpenRouter().client
-            
+
             completion = await openrouter.beta.chat.completions.parse(
                 messages=[
                     {
@@ -171,7 +171,7 @@ class DeathByAIService:
         """End the active game and evaluate all strategies"""
         # Get repository instance
         repository = DeathByAIService.get_repository()
-        
+
         game = await repository.get_active_game(chat_id)
         if not game:
             return None
@@ -238,6 +238,6 @@ class DeathByAIService:
         """Validate that a reply is to the correct game message"""
         # Get repository instance
         repository = DeathByAIService.get_repository()
-        
+
         game = await repository.get_game_by_message(message_id)
         return game is not None and game["status"] == "active" and game["message_id"] == reply_message_id

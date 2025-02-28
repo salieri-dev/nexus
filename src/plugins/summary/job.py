@@ -217,13 +217,7 @@ class SummaryJob:
             end_date_utc = end_date.astimezone(pytz.UTC)
 
             # Get messages within the date range for specific chat
-            messages = await self.message_repository.get_messages_by_date_range(
-                start_date=start_date_utc,
-                end_date=end_date_utc,
-                chat_id=chat_id,
-                exclude_commands=True,
-                exclude_bots=True
-            )
+            messages = await self.message_repository.get_messages_by_date_range(start_date=start_date_utc, end_date=end_date_utc, chat_id=chat_id, exclude_commands=True, exclude_bots=True)
             log.info("Messages fetched", chat_id=chat_id, date=date_str, message_count=len(messages))
 
             return messages

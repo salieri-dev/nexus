@@ -29,21 +29,21 @@ async def sentiment_stats(client: Client, message: Message):
     try:
         # Call service to analyze sentiment
         analysis, graph_bytes = await SentimentService.analyze_chat_sentiment_by_id(message.chat.id)
-        
+
         # Delete the initial message
         await init_msg.delete()
-        
+
         # Send results
         if graph_bytes:
             # Send graph with caption
             await message.reply_photo(photo=graph_bytes, caption=MESSAGES["SENTIMENT_GRAPH_CAPTION"], quote=True)
-            
+
             # Send the full detailed analysis
             await message.reply_text(text=analysis, quote=True)
         else:
             # Just send the analysis text if no graph
             await message.reply_text(text=analysis, quote=True)
-            
+
     except Exception as e:
         log.error(f"Error in sentiment analysis handler: {e}")
         await init_msg.edit_text("❌ Произошла ошибка при анализе настроений.")

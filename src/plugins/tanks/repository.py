@@ -91,11 +91,11 @@ class TanksRepository:
         """
         result = await self.collection.delete_one({"_id": tank_id})
         return result.deleted_count > 0
-        
+
     async def clear_all_tanks(self) -> int:
         """
         Delete all tanks from the database.
-        
+
         Returns:
             int: Number of tanks deleted
         """

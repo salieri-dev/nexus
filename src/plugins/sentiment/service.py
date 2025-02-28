@@ -68,15 +68,15 @@ class SentimentService:
         """Get message repository instance"""
         db_client = DatabaseClient.get_instance()
         return MessageRepository(db_client.client)
-        
+
     @staticmethod
     async def analyze_chat_sentiment_by_id(chat_id: int) -> Tuple[str, Optional[io.BytesIO]]:
         """
         Analyze sentiment for a specific chat by its ID.
-        
+
         Args:
             chat_id: The ID of the chat to analyze
-            
+
         Returns:
             Tuple containing:
             - Analysis text
@@ -85,28 +85,29 @@ class SentimentService:
         try:
             # Get repository
             message_repository = SentimentService.get_message_repository()
-            
+
             # Get all messages from the chat
             raw_messages = await message_repository.get_all_messages_by_chat(chat_id)
-            
+
             log.info(f"Retrieved {len(raw_messages)} messages for sentiment analysis in chat {chat_id}")
-            
+
             # Wrap raw message dictionaries with our wrapper class
             messages = [MessageWrapper(msg) for msg in raw_messages]
-            
+
             # Analyze sentiment
             analysis = await SentimentService.analyze_chat_sentiment(messages)
-            
+
             # Create sentiment graph if there are messages
             graph_bytes = None
             if messages:
                 graph_bytes = await SentimentService.create_sentiment_graph(messages)
-                
+
             return analysis, graph_bytes
-            
+
         except Exception as e:
             log.error(f"Error in sentiment analysis service: {e}")
             raise
+
     @staticmethod
     async def create_sentiment_graph(messages: List[Dict]) -> io.BytesIO:
         """Create an enhanced time-based sentiment analysis graph"""
