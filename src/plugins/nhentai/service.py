@@ -28,6 +28,8 @@ class NhentaiService:
     """Service for nhentai operations"""
     
     BASE_URL: str = "https://nhentai.net"
+    # Track the last successful domain to optimize future requests
+    last_successful_domain: str = None
     
     @staticmethod
     async def get_blur_setting(chat_id: int, message: Message = None) -> bool:
@@ -41,8 +43,8 @@ class NhentaiService:
         # Otherwise use config value
         return await get_chat_setting(chat_id, "nhentai_blur", True)
     
-    @staticmethod
-    async def download_image(url: str, session: httpx.AsyncClient) -> io.BytesIO:
+    @classmethod
+    async def download_image(cls, url: str, session: httpx.AsyncClient) -> io.BytesIO:
         """Download image from URL to BytesIO with fallback to alternative domains"""
         from src.plugins.nhentai.constants import NHENTAI_IMAGE_DOMAINS
         
@@ -58,8 +60,17 @@ class NhentaiService:
             
         domain, path = match.groups()
         
-        # Try the original domain first
-        domains_to_try = [domain] + [d for d in NHENTAI_IMAGE_DOMAINS if d != domain]
+        # Prioritize the last successful domain if available
+        domains_to_try = []
+        if cls.last_successful_domain:
+            domains_to_try.append(cls.last_successful_domain)
+        
+        # Then try the original domain if it's not the same as the last successful one
+        if domain != cls.last_successful_domain:
+            domains_to_try.append(domain)
+        
+        # Add remaining domains
+        domains_to_try.extend([d for d in NHENTAI_IMAGE_DOMAINS if d not in domains_to_try])
         
         for current_domain in domains_to_try:
             if current_domain in tried_domains:
@@ -77,6 +88,8 @@ class NhentaiService:
                 if response.status_code == 200:
                     content_length = len(response.content)
                     log.info("Image downloaded successfully", extra={"url": current_url, "content_length": content_length, "content_type": response.headers.get("content-type")})
+                    # Remember this successful domain for future requests
+                    cls.last_successful_domain = current_domain
                     return io.BytesIO(response.content)
                 elif response.status_code == 404:
                     log.warning("Image not found", extra={"url": current_url, "status_code": 404, "response_headers": dict(response.headers)})
@@ -274,15 +287,21 @@ class NhentaiAPI:
         """Extract tag details of a gallery as a list of Tag objects"""
         return [Tag(**tag) for tag in data["tags"]]
 
-    @staticmethod
-    def parse_images(data: dict) -> Images:
+    @classmethod
+    def parse_images(cls, data: dict) -> Images:
         """Construct image URLs (pages, cover, thumbnail) for the given gallery"""
         from src.plugins.nhentai.constants import NHENTAI_IMAGE_DOMAINS, NHENTAI_THUMB_DOMAINS
         
         media_id = data["media_id"]
-        # Use the first domain in the list for initial URLs
-        image_domain = NHENTAI_IMAGE_DOMAINS[0]
-        thumb_domain = NHENTAI_THUMB_DOMAINS[0]
+        # Use the last successful domain if available, otherwise use the first domain in the list
+        image_domain = NhentaiService.last_successful_domain if NhentaiService.last_successful_domain else NHENTAI_IMAGE_DOMAINS[0]
+        
+        # For thumbnails, try to use the corresponding thumb domain
+        if image_domain and image_domain.startswith('i'):
+            # Convert i.nhentai.net to t.nhentai.net, i2.nhentai.net to t2.nhentai.net, etc.
+            thumb_domain = 't' + image_domain[1:]
+        else:
+            thumb_domain = NHENTAI_THUMB_DOMAINS[0]
         
         pages = [f"https://{image_domain}/galleries/{media_id}/{i + 1}.{NhentaiAPI.get_extension(page['t'])}" for i, page in enumerate(data["images"]["pages"])]
 
