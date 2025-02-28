@@ -85,14 +85,7 @@ async def sentiment_stats(client: Client, message: Message):
         message_repository = get_message_repository()
 
         # Get all messages without a limit
-        # First, get the collection directly to bypass the limit
-        db_client = DatabaseClient.get_instance()
-        collection = db_client.client["nexus"]["messages"]
-
-        # Query for messages in this chat (try both formats)
-        query = {"$or": [{"chat.id": message.chat.id}, {"chat_id": message.chat.id}]}
-        cursor = collection.find(query)  # No limit applied
-        raw_messages = await cursor.to_list(length=None)
+        raw_messages = await message_repository.get_messages_by_chat(message.chat.id, limit=None)
 
         log.info(f"Retrieved {len(raw_messages)} messages for sentiment analysis in chat {message.chat.id}")
 

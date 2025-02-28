@@ -16,7 +16,6 @@ from pyrogram.types import CallbackQuery, InputMediaPhoto, Message
 from structlog import get_logger
 
 from src.config.framework import get_chat_setting
-from src.database.client import DatabaseClient
 from src.plugins.help import command_handler
 from src.security.permissions import requires_setting
 from src.security.rate_limiter import rate_limit

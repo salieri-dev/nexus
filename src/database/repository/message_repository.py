@@ -1,4 +1,5 @@
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import Dict, List, Optional, Any
 from structlog import get_logger
 
 
@@ -99,3 +100,92 @@ class MessageRepository:
             return message["user_id"]
 
         return None
+        
+    async def find_messages_by_query(self, query: Dict, limit: Optional[int] = None) -> List[Dict]:
+        """
+        Find messages by custom query.
+        
+        Args:
+            query: MongoDB query dictionary
+            limit: Maximum number of messages to return (None for no limit)
+            
+        Returns:
+            List of messages matching the query
+        """
+        cursor = self.collection.find(query)
+        if limit is not None:
+            cursor = cursor.limit(limit)
+        return await cursor.to_list(length=None)
+        
+    async def get_messages_by_date_range(self, start_date: datetime, end_date: datetime,
+                                         chat_id: int, exclude_commands: bool = True,
+                                         exclude_bots: bool = True) -> List[Dict]:
+        """
+        Get messages within a specific date range for a chat.
+        
+        Args:
+            start_date: Start date (inclusive)
+            end_date: End date (exclusive)
+            chat_id: Chat ID to filter by
+            exclude_commands: Whether to exclude command messages
+            exclude_bots: Whether to exclude bot messages
+            
+        Returns:
+            List of messages matching the criteria
+        """
+        query = {
+            "created_at": {"$gte": start_date, "$lt": end_date},
+            "chat.id": chat_id
+        }
+        
+        # Add filters for commands and bots if needed
+        if exclude_commands or exclude_bots:
+            and_conditions = []
+            
+            if exclude_commands:
+                and_conditions.append({
+                    "$or": [
+                        {"text": {"$exists": True, "$ne": "", "$not": {"$regex": "^/"}}},
+                        {"caption": {"$exists": True, "$ne": ""}}
+                    ]
+                })
+                
+            if exclude_bots:
+                and_conditions.append({
+                    "$or": [
+                        {"from_user.is_bot": False},
+                        {"from_user.is_bot": {"$exists": False}}
+                    ]
+                })
+                
+            if and_conditions:
+                query["$and"] = and_conditions
+        
+        cursor = self.collection.find(query).sort("created_at", 1)
+        return await cursor.to_list(length=None)
+        
+    async def aggregate_messages(self, pipeline: List[Dict]) -> List[Dict]:
+        """
+        Perform an aggregation on the messages collection.
+        
+        Args:
+            pipeline: MongoDB aggregation pipeline
+            
+        Returns:
+            List of documents resulting from the aggregation
+        """
+        cursor = self.collection.aggregate(pipeline)
+        return await cursor.to_list(length=None)
+        
+    async def find_one_message_by_chat_id(self, chat_id: int) -> Optional[Dict]:
+        """
+        Find a single message from a specific chat.
+        
+        Args:
+            chat_id: Chat ID to filter by
+            
+        Returns:
+            A message from the chat or None if not found
+        """
+        query = {"chat.id": chat_id}
+        return await self.collection.find_one(query)

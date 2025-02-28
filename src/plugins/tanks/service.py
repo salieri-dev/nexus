@@ -53,8 +53,8 @@ class TankService:
     async def clear_tanks(self):
         """Clear all tanks from the database."""
         try:
-            await self.repository.collection.delete_many({})
-            log.info("Cleared all tanks from database")
+            deleted_count = await self.repository.clear_all_tanks()
+            log.info(f"Cleared {deleted_count} tanks from database")
         except Exception as e:
             log.error("Failed to clear tanks", error=str(e))
             raise

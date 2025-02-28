@@ -52,7 +52,7 @@ class MarkovTextGenerator:
             if query is None:
                 messages = await self.message_repository.get_messages_by_chat(chat_id)
             else:
-                messages = await self.message_repository.collection.find(query).to_list(length=None)
+                messages = await self.message_repository.find_messages_by_query(query)
 
             if messages and len(messages) >= MIN_MESSAGES:
                 return messages

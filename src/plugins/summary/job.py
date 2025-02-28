@@ -216,30 +216,14 @@ class SummaryJob:
             start_date_utc = start_date.astimezone(pytz.UTC)
             end_date_utc = end_date.astimezone(pytz.UTC)
 
-            # Query messages within the date range for specific chat
-            cursor = self.message_repository.collection.find(
-                {
-                    "created_at": {"$gte": start_date_utc, "$lt": end_date_utc},
-                    "chat.id": chat_id,
-                    "$and": [
-                        {
-                            "$or": [
-                                {"text": {"$exists": True, "$ne": "", "$not": {"$regex": "^/"}}},
-                                # Non-empty text that doesn't start with /
-                                {"caption": {"$exists": True, "$ne": ""}},  # Non-empty caption
-                            ]
-                        },
-                        {
-                            "$or": [
-                                {"from_user.is_bot": False},  # Include non-bot users
-                                {"from_user.is_bot": {"$exists": False}},  # Include users where is_bot field doesn't exist
-                            ]
-                        },
-                    ],
-                }
-            ).sort("created_at", 1)  # Sort by date ascending
-
-            messages = await cursor.to_list(length=None)
+            # Get messages within the date range for specific chat
+            messages = await self.message_repository.get_messages_by_date_range(
+                start_date=start_date_utc,
+                end_date=end_date_utc,
+                chat_id=chat_id,
+                exclude_commands=True,
+                exclude_bots=True
+            )
             log.info("Messages fetched", chat_id=chat_id, date=date_str, message_count=len(messages))
 
             return messages
@@ -365,8 +349,7 @@ class SummaryJob:
                     {"$match": {"chat.type": {"$ne": "ChatType.PRIVATE"}}},  # Exclude private chats
                     {"$group": {"_id": "$chat.id"}},
                 ]
-                cursor = self.message_repository.collection.aggregate(pipeline)
-                result = await cursor.to_list(length=None)
+                result = await self.message_repository.aggregate_messages(pipeline)
                 chat_ids = [doc["_id"] for doc in result]
                 log.info("Processing all non-private chats (DEBUG=False)", chat_count=len(chat_ids))
 
@@ -385,7 +368,7 @@ class SummaryJob:
                     enabled_count += 1
 
                     # Get chat title from any message
-                    chat_msg = await self.message_repository.collection.find_one({"chat.id": chat_id})
+                    chat_msg = await self.message_repository.find_one_message_by_chat_id(chat_id)
                     chat_title = chat_msg["chat"].get("title", str(chat_id)) if chat_msg else str(chat_id)
 
                     # Generate summary for this chat
