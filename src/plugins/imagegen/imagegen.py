@@ -12,6 +12,12 @@ from .constants import CALLBACK_PREFIX, MODEL_CALLBACK, NEGATIVE_PROMPT_CALLBACK
 from .repository import ImagegenRepository, ImagegenModelRepository
 from .service import ImagegenService
 
+import httpx
+import re
+
+from src.utils.helpers import is_developer
+
+
 log = get_logger(__name__)
 
 # Initialize the image generation service and repositories
@@ -124,7 +130,7 @@ async def create_image_size_keyboard() -> InlineKeyboardMarkup:
 
 
 @Client.on_message(filters.command(["imagegen"]), group=1)
-@command_handler(commands=["imagegen"], description="Генерация изображений и настройки", group="Изображения")
+@command_handler(commands=["imagegen"], description="Генерация изображений и настройки", group="Нейронки")
 async def imagegen_command(client: Client, message: Message):
     """Handler for /imagegen command."""
     try:
@@ -286,17 +292,17 @@ async def handle_imagegen_callback(client: Client, callback_query: CallbackQuery
     except Exception as e:
         log.error("Error handling imagegen callback", error=str(e))
         await callback_query.answer("❌ Произошла ошибка при обработке настроек.")
-
-
-import httpx
-import re
-
-
+        
 # Command to add a new model from Civitai
 @Client.on_message(filters.command(["add_model"]), group=4)
-@command_handler(commands=["add_model"], description="Добавить новую модель из Civitai для генерации изображений", group="Изображения")
+@command_handler(commands=["add_model"], description="Добавить новую модель из Civitai для генерации изображений", group="Нейронки")
 async def add_model_command(client: Client, message: Message):
     """Handler for /add_model command."""
+    
+    if not is_developer(message.from_user.id):
+        await message.reply("❌ **Только разработчик может использовать эту команду**", parse_mode=ParseMode.MARKDOWN)
+        return
+    
     try:
         # Check command format
         command_parts = message.text.split(maxsplit=1)
