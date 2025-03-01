@@ -1,16 +1,12 @@
 """Service for image generation using fal-ai."""
 
-import os
-import io
-import asyncio
-from typing import Dict, Any, List, Optional, Tuple, AsyncGenerator
+from typing import Dict, Any, List, Tuple, AsyncGenerator
 from structlog import get_logger
 from pyrogram.types import InputMediaPhoto
 
-from src.database.client import DatabaseClient
 from src.services.falai import FalAI
 from .repository import ImagegenRepository, ImagegenModelRepository
-from .constants import DEFAULT_CONFIG, AVAILABLE_SCHEDULERS, load_models_and_loras
+from .constants import DEFAULT_CONFIG, AVAILABLE_SCHEDULERS
 
 log = get_logger(__name__)
 
@@ -33,7 +29,6 @@ class ImagegenService:
         """Initialize the service by initializing the model repository."""
         repo = ImagegenService.get_model_repository()
         await repo.initialize()
-        await load_models_and_loras()
 
     @staticmethod
     async def _get_model_url(model_id: str) -> str:
@@ -51,11 +46,11 @@ class ImagegenService:
         """
         repo = ImagegenService.get_model_repository()
         model_data = await repo.get_model_by_id(model_id)
-        
+
         if not model_data or not model_data.get("url"):
             log.error("Model not found", model_id=model_id)
             raise ValueError(f"Model not found: {model_id}")
-            
+
         return model_data["url"]
 
     @staticmethod
@@ -73,7 +68,7 @@ class ImagegenService:
         for display_name, id_value in AVAILABLE_SCHEDULERS.items():
             if id_value == scheduler_id:
                 return display_name
-        
+
         # Default if not found
         log.warning("Scheduler not found, using default", scheduler_id=scheduler_id)
         return "DPM++ 2M SDE Karras"
@@ -92,7 +87,7 @@ class ImagegenService:
         """
         if not trigger_words:
             return prompt
-            
+
         enhanced_prompt = f"{prompt}, {', '.join(trigger_words)}"
         log.info("Added trigger words to prompt", original=prompt, enhanced=enhanced_prompt)
         return enhanced_prompt
@@ -114,23 +109,25 @@ class ImagegenService:
             return [], []
 
         repo = ImagegenService.get_model_repository()
-        
+
         loras = []
         trigger_words = []
-        
+
         for lora_id in lora_ids:
             lora_data = await repo.get_lora_by_id(lora_id)
             if lora_data:
                 # Add lora configuration
-                loras.append({
-                    "path": lora_data["url"],  # The API expects 'path' not 'model_name'
-                    "weight": lora_data.get("default_scale", 0.7)  # Use default_scale from database
-                })
-                
+                loras.append(
+                    {
+                        "path": lora_data["url"],  # The API expects 'path' not 'model_name'
+                        "weight": lora_data.get("default_scale", 0.7),  # Use default_scale from database
+                    }
+                )
+
                 # Collect trigger words if any
                 if lora_data.get("trigger_words"):
                     trigger_words.append(lora_data["trigger_words"])
-        
+
         return loras, trigger_words
 
     @staticmethod
@@ -147,21 +144,21 @@ class ImagegenService:
         """
         # Get user configuration
         config = await ImagegenRepository.get_imagegen_config(chat_id)
-        
+
         # Get model URL from ID
         model_id = config.get("model", DEFAULT_CONFIG["model"])
         model_url = await ImagegenService._get_model_url(model_id)
-        
+
         # Prepare loras and get trigger words
         loras, trigger_words = await ImagegenService._prepare_loras(config.get("loras", []))
-        
+
         # Add trigger words to the prompt if any
         enhanced_prompt = await ImagegenService._enhance_prompt_with_trigger_words(prompt, trigger_words)
-        
+
         # Get scheduler display name
         scheduler_id = config.get("scheduler", DEFAULT_CONFIG["scheduler"])
         scheduler_display_name = await ImagegenService._get_scheduler_display_name(scheduler_id)
-        
+
         # Prepare payload
         payload = {
             "model_name": model_url,
@@ -177,7 +174,7 @@ class ImagegenService:
             "scheduler": scheduler_display_name,  # Use display name instead of ID
             "enable_safety_checker": False,
         }
-        
+
         return payload
 
     @staticmethod
@@ -196,7 +193,7 @@ class ImagegenService:
             for image in handler["images"]:
                 if "url" in image:
                     image_urls.append(image["url"])
-        
+
         log.info("Extracted image URLs", count=len(image_urls))
         return image_urls
 
@@ -228,18 +225,18 @@ class ImagegenService:
         try:
             # Prepare payload
             payload = await ImagegenService._prepare_generation_payload(chat_id, prompt)
-            
+
             log.info("Generating images", chat_id=chat_id, prompt=prompt)
-            
+
             # Get FalAI client
             falai = FalAI()
-            
+
             # Submit the job to fal-ai
             handler = await falai.generate_image_sync("fal-ai/lora", payload)
-            
+
             # Extract image URLs from the result
             return await ImagegenService._extract_image_urls(handler)
-            
+
         except Exception as e:
             log.error("Error generating images", error=str(e), chat_id=chat_id, prompt=prompt)
             raise
@@ -259,16 +256,16 @@ class ImagegenService:
         try:
             # Prepare payload
             payload = await ImagegenService._prepare_generation_payload(chat_id, prompt)
-            
+
             log.info("Generating images with progress", chat_id=chat_id, prompt=prompt)
-            
+
             # Get FalAI client
             falai = FalAI()
-            
+
             # Submit the job to fal-ai and yield progress events
             async for event in falai.generate_image("fal-ai/lora", payload):
                 yield event
-                
+
         except Exception as e:
             log.error("Error generating images with progress", error=str(e), chat_id=chat_id, prompt=prompt)
             yield {"error": str(e)}
@@ -286,10 +283,10 @@ class ImagegenService:
             List of InputMediaPhoto objects for sending as a media group
         """
         media_group = []
-        
+
         for i, url in enumerate(image_urls):
             # Add caption only to the first image
             media_caption = caption if i == 0 else None
             media_group.append(InputMediaPhoto(url, caption=media_caption))
-            
+
         return media_group

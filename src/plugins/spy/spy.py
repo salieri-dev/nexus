@@ -23,7 +23,7 @@ def get_user_identifier(message) -> str:
     if message.from_user is None:
         # Handle channel posts or messages without a user
         return "Channel" if message.chat.type == ChatType.CHANNEL else "Unknown"
-    
+
     user = message.from_user
     return user.username or user.first_name or user.last_name or "Unknown User"
 
@@ -73,13 +73,7 @@ async def message(client: Client, message):
         # Include peer config status in logging
         config_status = {k: v for k, v in peer_config.items() if k != "chat_id"}
 
-        log.info(
-            f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id if message.from_user else 'N/A'}]: {msg_content}", 
-            message_id=message.id, 
-            chat_id=message.chat.id, 
-            message_type=type(message).__name__, 
-            peer_config=config_status
-        )
+        log.info(f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id if message.from_user else 'N/A'}]: {msg_content}", message_id=message.id, chat_id=message.chat.id, message_type=type(message).__name__, peer_config=config_status)
 
     except Exception as e:
         log.error("Error logging message", error=str(e), message_id=getattr(message, "id", None))

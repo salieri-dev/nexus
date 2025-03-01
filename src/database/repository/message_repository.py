@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from structlog import get_logger
 
-
 log = get_logger(__name__)
 
 
