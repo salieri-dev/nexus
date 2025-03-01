@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 
 from pyrogram import Client, filters
+from pyrogram.enums import ChatType
 from structlog import get_logger
 
 from src.database.client import DatabaseClient
@@ -19,6 +20,10 @@ def serialize(obj: str) -> dict:
 
 def get_user_identifier(message) -> str:
     """Extract user identifier from message."""
+    if message.from_user is None:
+        # Handle channel posts or messages without a user
+        return "Channel" if message.chat.type == ChatType.CHANNEL else "Unknown"
+    
     user = message.from_user
     return user.username or user.first_name or user.last_name or "Unknown User"
 
@@ -63,12 +68,18 @@ async def message(client: Client, message):
         # Build logging data
         user_identifier = get_user_identifier(message)
         msg_content = get_message_content(message)
-        chat_title = "DM" if message.chat.type == "private" else message.chat.title
+        chat_title = "DM" if message.chat.type == ChatType.PRIVATE else message.chat.title
 
         # Include peer config status in logging
         config_status = {k: v for k, v in peer_config.items() if k != "chat_id"}
 
-        log.info(f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id}]: {msg_content}", message_id=message.id, chat_id=message.chat.id, message_type=type(message).__name__, peer_config=config_status)
+        log.info(
+            f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id if message.from_user else 'N/A'}]: {msg_content}", 
+            message_id=message.id, 
+            chat_id=message.chat.id, 
+            message_type=type(message).__name__, 
+            peer_config=config_status
+        )
 
     except Exception as e:
         log.error("Error logging message", error=str(e), message_id=getattr(message, "id", None))
