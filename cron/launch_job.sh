@@ -5,4 +5,4 @@
 cd "$(dirname "$0")/.." || exit 1
 
 # Start the cron container
-docker-compose up -d --no-deps cron
+docker compose up -d --no-deps cron
