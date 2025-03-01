@@ -14,6 +14,7 @@ from transformers import pipeline, BertForSequenceClassification, BertTokenizer
 
 import os
 import logging
+import logging.handlers
 from datetime import datetime
 
 # Define cache and logs directories
@@ -42,15 +43,25 @@ from urllib.parse import quote_plus
 mongodb_host = "mongodb" if os.getenv('DOCKER_ENV') == 'true' else os.getenv('MONGO_BIND_IP')
 MONGODB_URI = f"mongodb://{quote_plus(os.getenv('MONGO_USERNAME'))}:{quote_plus(os.getenv('MONGO_PASSWORD'))}@{mongodb_host}:{os.getenv('MONGO_PORT')}"
 
-current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-log_file = os.path.join(LOGS_DIR, f'sentiment_analysis_{current_time}.log')
+# Log file configuration with rotation
+log_file = os.path.join(LOGS_DIR, 'sentiment_analysis.log')
 
-# Configure logging
+# Configure logging with rotation
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler(log_file),
+        # Rotate log files daily, keep 7 days of logs, compress old logs
+        logging.handlers.TimedRotatingFileHandler(
+            filename=log_file,
+            when='midnight',  # Rotate at midnight
+            interval=1,       # Daily rotation
+            backupCount=7,    # Keep 7 days of logs
+            encoding='utf-8',
+            delay=False,
+            utc=False,
+            atTime=None
+        ),
         logging.StreamHandler()
     ]
 )
