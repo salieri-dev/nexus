@@ -8,6 +8,8 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 from structlog import get_logger
 
 from src.plugins.help import command_handler
+from src.database.client import DatabaseClient
+from src.database.repository.ratelimit_repository import RateLimitRepository
 from .constants import CALLBACK_PREFIX, MODEL_CALLBACK, NEGATIVE_PROMPT_CALLBACK, CFG_SCALE_CALLBACK, LORAS_CALLBACK, SCHEDULER_CALLBACK, IMAGE_SIZE_CALLBACK, BACK_CALLBACK, AVAILABLE_SCHEDULERS, IMAGE_SIZES
 from .repository import ImagegenRepository, ImagegenModelRepository
 from .service import ImagegenService
@@ -135,6 +137,26 @@ async def imagegen_command(client: Client, message: Message):
     try:
         # Check if there's a prompt after the command
         if len(message.command) > 1:
+            # Apply rate limiting only for image generation
+            # Check rate limit manually
+            user_id = message.from_user.id
+            db_client = DatabaseClient.get_instance()
+            rate_limit_repo = RateLimitRepository(db_client)
+            
+            # Check if user is rate limited (3 minutes window)
+            allowed = await rate_limit_repo.check_rate_limit(
+                user_id=user_id,
+                operation="imagegen",
+                window_seconds=180  # 3 minutes
+            )
+            
+            if not allowed:
+                await message.reply(
+                    "⏳ **Слишком много запросов!**\n\nПожалуйста, подождите 3 минуты перед следующей генерацией изображений.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                return
+                
             # Get the prompt from the message
             prompt = " ".join(message.command[1:])
 
@@ -145,7 +167,6 @@ async def imagegen_command(client: Client, message: Message):
             await imagegen_service.initialize()
 
             # Get the user's configuration instead of the chat's configuration
-            user_id = message.from_user.id
             user_config = await ImagegenRepository.get_imagegen_config(user_id)
             
             # Log the configuration being used
@@ -185,17 +206,46 @@ async def imagegen_command(client: Client, message: Message):
             payload = await imagegen_service._prepare_generation_payload(user_id, prompt)
             
             # Create comprehensive caption with all settings
+            # Get model name from repository
+            model_id = user_config.get("model", "")
+            model_name = model_id  # Default to ID if name can't be found
+            if model_id:
+                model_data = await model_repository.get_model_by_id(model_id)
+                if model_data and "name" in model_data:
+                    model_name = model_data["name"]
+            
+            # Get LoRA information with names
             loras_info = []
             for lora in payload['loras']:
-                lora_path = lora.get('path', '').split('/')[-1]
+                # Use the lora_name directly from the payload if available
+                lora_name = lora.get('lora_name', 'Unknown LoRA')
                 lora_weight = lora.get('weight', 0.7)
-                loras_info.append(f"{lora_path} (weight: {lora_weight})")
+                
+                # If lora_name is not available, try to get it from the repository
+                if lora_name == 'Unknown LoRA':
+                    lora_id = lora.get('lora_id', '')
+                    if not lora_id:
+                        # Try to extract ID from path as fallback
+                        lora_id = lora.get('path', '').split('/')[-1]
+                    
+                    # Try to get the LoRA data from the repository
+                    try:
+                        lora_data = await model_repository.get_lora_by_id(lora_id)
+                        if lora_data and "name" in lora_data:
+                            lora_name = lora_data["name"]
+                        else:
+                            # Log that we couldn't find the LoRA name
+                            log.warning(f"Could not find LoRA name for ID: {lora_id}")
+                    except Exception as e:
+                        log.error(f"Error getting LoRA data for ID {lora_id}: {str(e)}")
+                
+                loras_info.append(f"{lora_name} (weight: {lora_weight})")
                 
             caption = (
                 f"🖼 **Сгенерированные изображения**\n\n"
                 f"**Промпт:** `{payload['prompt']}`\n"
                 f"**Негативный промпт:** `{payload['negative_prompt']}`\n\n"
-                f"**Модель:** {payload['model_name'].split('/')[-1] if '/' in payload['model_name'] else payload['model_name']}\n"
+                f"**Модель:** {model_name}\n"
                 f"**LoRAs:** {', '.join(loras_info) if loras_info else 'None'}\n"
                 f"**CFG Scale:** {payload['guidance_scale']}\n"
                 f"**Scheduler:** {payload['scheduler']}\n"
@@ -244,205 +294,225 @@ async def handle_imagegen_callback(client: Client, callback_query: CallbackQuery
 
         # Handle back button
         if data == BACK_CALLBACK:
+            # Create new settings keyboard
             keyboard = await create_settings_keyboard(config)
-            await callback_query.edit_message_text("⚙️ **Настройки генерации изображений**\n\nВыберите параметр для настройки:", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+            
+            # Edit the message with the settings
+            await callback_query.edit_message_text(
+                "⚙️ **Настройки генерации изображений**\n\nВыберите параметр для настройки:",
+                reply_markup=keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
             return
 
         # Handle model selection
         if data.startswith(MODEL_CALLBACK):
-            model_id = data[len(MODEL_CALLBACK) :]
+            model_id = data[len(MODEL_CALLBACK):]
 
             if model_id == "list":
-                # Show model selection keyboard with previews
+                # Show model selection keyboard
                 keyboard, models = await create_model_keyboard()
                 
-                # Delete the original message
-                await callback_query.message.delete()
-                
-                # Send each model with its preview as a separate message
-                for i, model in enumerate(models, 1):
-                    model_name = model["name"]
-                    model_desc = model.get("description", "")
-                    # Truncate description if too long
-                    if len(model_desc) > 100:
-                        model_desc = model_desc[:100] + "..."
-                    
-                    model_text = f"**[{i}] {model_name}**\n{model_desc}\n\n"
-                    
-                    # If model has preview, send image with caption
-                    if model.get("preview_url"):
-                        await client.send_photo(
-                            chat_id=chat_id,
-                            photo=model["preview_url"],
-                            caption=model_text,
-                            parse_mode=ParseMode.MARKDOWN
-                        )
-                    else:
-                        # If no preview, just send text
-                        await client.send_message(
-                            chat_id=chat_id,
-                            text=model_text,
-                            parse_mode=ParseMode.MARKDOWN
-                        )
-                
-                # Send selection keyboard at the end
-                await client.send_message(
-                    chat_id=chat_id,
-                    text="👆 **Выберите модель из списка выше:**",
+                # Edit the original message instead of deleting it
+                await callback_query.edit_message_text(
+                    "👇 **Выберите модель из списка ниже:**",
                     reply_markup=keyboard,
                     parse_mode=ParseMode.MARKDOWN
                 )
+                
+                # Prepare model information as text
+                preview_message = "**Доступные модели:**\n\n"
+                for i, model in enumerate(models, 1):
+                    model_text = f"**[{i}] {model['name']}**\n"
+                    if model.get("description"):
+                        desc = model.get("description", "")
+                        if len(desc) > 100:
+                            desc = desc[:100] + "..."
+                        model_text += f"{desc}\n"
+                    model_text += "\n"
+                    preview_message += model_text
+                
+                # Create media group with caption on first image
+                media_group = []
+                models_with_preview = [model for model in models if model.get("preview_url")]
+                
+                if models_with_preview:
+                    # Add first model with caption
+                    media_group.append(
+                        InputMediaPhoto(
+                            media=models_with_preview[0]["preview_url"],
+                            caption=preview_message,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                    )
+                    
+                    # Add remaining models without caption
+                    for model in models_with_preview[1:]:
+                        media_group.append(
+                            InputMediaPhoto(
+                                media=model["preview_url"]
+                            )
+                        )
+                    
+                    # Send in chunks of 10 (Telegram limit)
+                    for i in range(0, len(media_group), 10):
+                        chunk = media_group[i:i+10]
+                        await client.send_media_group(
+                            chat_id=chat_id,
+                            media=chunk
+                        )
+                else:
+                    # If no models have preview images, just send the text
+                    await client.send_message(
+                        chat_id=chat_id,
+                        text=preview_message,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
             else:
                 # Update model setting
                 await ImagegenRepository.update_imagegen_setting(chat_id, "model", model_id)
 
-                # Update config and show main settings
+                # Return to main settings
                 config = await ImagegenRepository.get_imagegen_config(chat_id)
                 keyboard = await create_settings_keyboard(config)
 
-                await callback_query.edit_message_text(f"⚙️ **Настройки генерации изображений**\n\n✅ Модель успешно изменена\n\nВыберите параметр для настройки:", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+                await callback_query.edit_message_text(
+                    f"⚙️ **Настройки генерации изображений**\n\n✅ Модель успешно изменена\n\nВыберите параметр для настройки:", 
+                    reply_markup=keyboard, 
+                    parse_mode=ParseMode.MARKDOWN
+                )
             return
 
         # Handle negative prompt
         if data == NEGATIVE_PROMPT_CALLBACK:
             # Ask user to send negative prompt
-            await callback_query.edit_message_text(f"🚫 **Негативный промпт**\n\nТекущее значение: `{config.get('negative_prompt', '')}`\n\nОтправьте новый негативный промпт в ответ на это сообщение (максимум 512 символов).\n\nДля отмены нажмите /cancel", parse_mode=ParseMode.MARKDOWN)
+            await callback_query.edit_message_text(
+                f"🚫 **Негативный промпт**\n\nТекущее значение: `{config.get('negative_prompt', '')}`\n\n" +
+                "Отправьте новый негативный промпт в ответ на это сообщение (максимум 512 символов).\n\n" +
+                "Для отмены нажмите /cancel", 
+                parse_mode=ParseMode.MARKDOWN
+            )
             return
 
         # Handle CFG Scale
         if data == CFG_SCALE_CALLBACK:
             # Ask user to send CFG Scale
-            await callback_query.edit_message_text(f"⚙️ **CFG Scale**\n\nТекущее значение: `{config.get('cfg_scale', 7.0)}`\n\nОтправьте новое значение CFG Scale в ответ на это сообщение (число с плавающей точкой).\n\nДля отмены нажмите /cancel", parse_mode=ParseMode.MARKDOWN)
+            await callback_query.edit_message_text(
+                f"⚙️ **CFG Scale**\n\nТекущее значение: `{config.get('cfg_scale', 7.0)}`\n\n" +
+                "Отправьте новое значение CFG Scale в ответ на это сообщение (число с плавающей точкой).\n\n" +
+                "Для отмены нажмите /cancel", 
+                parse_mode=ParseMode.MARKDOWN
+            )
             return
 
         # Handle loras selection
         if data.startswith(LORAS_CALLBACK):
-            lora_id = data[len(LORAS_CALLBACK) :]
+            lora_id = data[len(LORAS_CALLBACK):]
 
             if lora_id == "list":
                 # Show loras selection keyboard with previews
                 keyboard, loras = await create_loras_keyboard(config.get("loras", []))
                 
-                # Delete the original message
-                await callback_query.message.delete()
-                
-                # Send each lora with its preview as a separate message
-                for i, lora in enumerate(loras, 1):
-                    lora_name = lora["name"]
-                    lora_desc = lora.get("description", "")
-                    trigger_words = lora.get("trigger_words", "")
-                    default_scale = lora.get("default_scale", 0.7)
-                    
-                    # Truncate description if too long
-                    if len(lora_desc) > 100:
-                        lora_desc = lora_desc[:100] + "..."
-                    
-                    # Add selection status indicator
-                    selection_status = "✅ " if lora["id"] in config.get("loras", []) else ""
-                    
-                    lora_text = f"**[{i}] {selection_status}{lora_name}**\n"
-                    if trigger_words:
-                        lora_text += f"Trigger words: `{trigger_words}`\n"
-                    lora_text += f"Default scale: {default_scale}\n"
-                    lora_text += f"{lora_desc}\n\n"
-                    
-                    # If lora has preview, send image with caption
-                    if lora.get("preview_url"):
-                        await client.send_photo(
-                            chat_id=chat_id,
-                            photo=lora["preview_url"],
-                            caption=lora_text,
-                            parse_mode=ParseMode.MARKDOWN
-                        )
-                    else:
-                        # If no preview, just send text
-                        await client.send_message(
-                            chat_id=chat_id,
-                            text=lora_text,
-                            parse_mode=ParseMode.MARKDOWN
-                        )
-                
-                # Send selection keyboard at the end
-                await client.send_message(
-                    chat_id=chat_id,
-                    text="👆 **Нажмите на Lora в списке выше для выбора/отмены выбора:**",
+                # Edit the original message instead of deleting it
+                await callback_query.edit_message_text(
+                    "👇 **Выберите Lora из списка ниже (можно выбрать только одну):**",
                     reply_markup=keyboard,
                     parse_mode=ParseMode.MARKDOWN
                 )
-            else:
-                # Toggle lora selection
-                current_loras = config.get("loras", [])
-
-                if lora_id in current_loras:
-                    current_loras.remove(lora_id)
+                
+                # Prepare preview data
+                preview_message = "**Доступные LoRAs:**\n\n"
+                for i, lora in enumerate(loras, 1):
+                    selection_status = "✅ " if lora["id"] in config.get("loras", []) else ""
+                    lora_text = f"**[{i}] {selection_status}{lora['name']}**\n"
+                    if lora.get("trigger_words"):
+                        lora_text += f"Trigger words: `{lora['trigger_words']}`\n"
+                    lora_text += f"Default scale: {lora.get('default_scale', 0.7)}\n"
+                    if lora.get("description"):
+                        desc = lora.get("description", "")
+                        if len(desc) > 100:
+                            desc = desc[:100] + "..."
+                        lora_text += f"{desc}\n"
+                    lora_text += "\n"
+                    preview_message += lora_text
+                
+                # Create media group with caption on first image
+                media_group = []
+                loras_with_preview = [lora for lora in loras if lora.get("preview_url")]
+                
+                if loras_with_preview:
+                    # Add first lora with caption
+                    media_group.append(
+                        InputMediaPhoto(
+                            media=loras_with_preview[0]["preview_url"],
+                            caption=preview_message,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                    )
+                    
+                    # Add remaining loras without caption
+                    for lora in loras_with_preview[1:]:
+                        media_group.append(
+                            InputMediaPhoto(
+                                media=lora["preview_url"]
+                            )
+                        )
+                    
+                    # Send in chunks of 10 (Telegram limit)
+                    for i in range(0, len(media_group), 10):
+                        chunk = media_group[i:i+10]
+                        await client.send_media_group(
+                            chat_id=chat_id,
+                            media=chunk
+                        )
                 else:
-                    current_loras.append(lora_id)
+                    # If no loras have preview images, just send the text
+                    await client.send_message(
+                        chat_id=chat_id,
+                        text=preview_message,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+            else:
+                # Replace current lora selection with the new one (only one allowed)
+                current_loras = config.get("loras", [])
+                
+                # If the same lora is clicked again, deselect it
+                if lora_id in current_loras:
+                    new_loras = []
+                else:
+                    # Otherwise, select only this lora
+                    new_loras = [lora_id]
 
                 # Update loras setting
-                await ImagegenRepository.update_imagegen_setting(chat_id, "loras", current_loras)
+                await ImagegenRepository.update_imagegen_setting(chat_id, "loras", new_loras)
 
                 # Get updated config
                 config = await ImagegenRepository.get_imagegen_config(chat_id)
                 
-                # Create updated keyboard
-                keyboard, loras = await create_loras_keyboard(config.get("loras", []))
-                
-                # Delete the original message
-                await callback_query.message.delete()
-                
-                # Send each lora with its preview as a separate message
-                for i, lora in enumerate(loras, 1):
-                    lora_name = lora["name"]
-                    lora_desc = lora.get("description", "")
-                    trigger_words = lora.get("trigger_words", "")
-                    default_scale = lora.get("default_scale", 0.7)
-                    
-                    # Truncate description if too long
-                    if len(lora_desc) > 100:
-                        lora_desc = lora_desc[:100] + "..."
-                    
-                    # Add selection status indicator
-                    selection_status = "✅ " if lora["id"] in config.get("loras", []) else ""
-                    
-                    lora_text = f"**[{i}] {selection_status}{lora_name}**\n"
-                    if trigger_words:
-                        lora_text += f"Trigger words: `{trigger_words}`\n"
-                    lora_text += f"Default scale: {default_scale}\n"
-                    lora_text += f"{lora_desc}\n\n"
-                    
-                    # If lora has preview, send image with caption
-                    if lora.get("preview_url"):
-                        await client.send_photo(
-                            chat_id=chat_id,
-                            photo=lora["preview_url"],
-                            caption=lora_text,
-                            parse_mode=ParseMode.MARKDOWN
-                        )
-                    else:
-                        # If no preview, just send text
-                        await client.send_message(
-                            chat_id=chat_id,
-                            text=lora_text,
-                            parse_mode=ParseMode.MARKDOWN
-                        )
-                
-                # Send updated selection keyboard at the end with success message
-                await client.send_message(
-                    chat_id=chat_id,
-                    text=f"✅ Lora {'удалена из' if lora_id not in current_loras else 'добавлена в'} список выбранных\n\n👆 **Нажмите на Lora в списке выше для выбора/отмены выбора:**",
-                    reply_markup=keyboard,
+                # Return to main settings immediately after selection
+                keyboard = await create_settings_keyboard(config)
+
+                # Update message with success notification and main settings
+                status_text = "удалена" if not new_loras else "выбрана"
+                await callback_query.edit_message_text(
+                    f"⚙️ **Настройки генерации изображений**\n\n✅ Lora {status_text}\n\nВыберите параметр для настройки:", 
+                    reply_markup=keyboard, 
                     parse_mode=ParseMode.MARKDOWN
                 )
             return
 
         # Handle scheduler selection
         if data.startswith(SCHEDULER_CALLBACK):
-            scheduler_id = data[len(SCHEDULER_CALLBACK) :]
+            scheduler_id = data[len(SCHEDULER_CALLBACK):]
 
             if scheduler_id == "list":
                 # Show scheduler selection keyboard
                 keyboard = await create_scheduler_keyboard()
-                await callback_query.edit_message_text("🔄 **Выберите Scheduler:**", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+                await callback_query.edit_message_text(
+                    "🔄 **Выберите Scheduler:**", 
+                    reply_markup=keyboard, 
+                    parse_mode=ParseMode.MARKDOWN
+                )
             else:
                 # Update scheduler setting
                 await ImagegenRepository.update_imagegen_setting(chat_id, "scheduler", scheduler_id)
@@ -451,17 +521,25 @@ async def handle_imagegen_callback(client: Client, callback_query: CallbackQuery
                 config = await ImagegenRepository.get_imagegen_config(chat_id)
                 keyboard = await create_settings_keyboard(config)
 
-                await callback_query.edit_message_text(f"⚙️ **Настройки генерации изображений**\n\n✅ Scheduler успешно изменен\n\nВыберите параметр для настройки:", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+                await callback_query.edit_message_text(
+                    f"⚙️ **Настройки генерации изображений**\n\n✅ Scheduler успешно изменен\n\nВыберите параметр для настройки:", 
+                    reply_markup=keyboard, 
+                    parse_mode=ParseMode.MARKDOWN
+                )
             return
 
         # Handle image size selection
         if data.startswith(IMAGE_SIZE_CALLBACK):
-            size_id = data[len(IMAGE_SIZE_CALLBACK) :]
+            size_id = data[len(IMAGE_SIZE_CALLBACK):]
 
             if size_id == "list":
                 # Show image size selection keyboard
                 keyboard = await create_image_size_keyboard()
-                await callback_query.edit_message_text("📏 **Выберите размер изображения:**", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+                await callback_query.edit_message_text(
+                    "📏 **Выберите размер изображения:**", 
+                    reply_markup=keyboard, 
+                    parse_mode=ParseMode.MARKDOWN
+                )
             else:
                 # Update image size setting
                 await ImagegenRepository.update_imagegen_setting(chat_id, "image_size", size_id)
@@ -470,7 +548,11 @@ async def handle_imagegen_callback(client: Client, callback_query: CallbackQuery
                 config = await ImagegenRepository.get_imagegen_config(chat_id)
                 keyboard = await create_settings_keyboard(config)
 
-                await callback_query.edit_message_text(f"⚙️ **Настройки генерации изображений**\n\n✅ Размер изображения успешно изменен\n\nВыберите параметр для настройки:", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+                await callback_query.edit_message_text(
+                    f"⚙️ **Настройки генерации изображений**\n\n✅ Размер изображения успешно изменен\n\nВыберите параметр для настройки:", 
+                    reply_markup=keyboard, 
+                    parse_mode=ParseMode.MARKDOWN
+                )
             return
 
     except Exception as e:

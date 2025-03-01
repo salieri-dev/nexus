@@ -148,6 +148,8 @@ class ImagegenService:
                 lora_config = {
                     "path": lora_data["url"],  # The API expects 'path' not 'model_name'
                     "weight": lora_data.get("default_scale", 0.7),  # Use default_scale from database
+                    "lora_id": lora_id,  # Store the original ID for later reference
+                    "lora_name": lora_data.get("name", lora_id)  # Store the name for easier access
                 }
                 
                 # Add preview_url if available
