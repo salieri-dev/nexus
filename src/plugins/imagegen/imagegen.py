@@ -18,10 +18,6 @@ log = get_logger(__name__)
 imagegen_service = ImagegenService()
 model_repository = ImagegenModelRepository()
 
-# These will be populated when needed
-AVAILABLE_MODELS = {}
-AVAILABLE_LORAS = {}
-
 
 async def create_settings_keyboard(config: Dict[str, Any]) -> InlineKeyboardMarkup:
     """
@@ -33,10 +29,15 @@ async def create_settings_keyboard(config: Dict[str, Any]) -> InlineKeyboardMark
     Returns:
         InlineKeyboardMarkup with settings buttons
     """
-    # We'll load models and loras only when needed, not on every keyboard creation
-
     # Get current values for display
-    current_model = config.get("model")
+    current_model_id = config.get("model")
+    current_model_name = current_model_id  # Default to ID if name can't be found
+    
+    # Try to get the model name from the repository
+    if current_model_id:
+        model_data = await model_repository.get_model_by_id(current_model_id)
+        if model_data and "name" in model_data:
+            current_model_name = model_data["name"]
 
     current_scheduler = next((name for name, value in AVAILABLE_SCHEDULERS.items() if value == config.get("scheduler")), "Не выбрано")
 
@@ -44,7 +45,7 @@ async def create_settings_keyboard(config: Dict[str, Any]) -> InlineKeyboardMark
 
     # Create keyboard
     keyboard = [
-        [InlineKeyboardButton(f"🖼 Модель: {current_model}", callback_data=f"{MODEL_CALLBACK}list")],
+        [InlineKeyboardButton(f"🖼 Модель: {current_model_name}", callback_data=f"{MODEL_CALLBACK}list")],
         [InlineKeyboardButton(f"🚫 Негативный промпт", callback_data=NEGATIVE_PROMPT_CALLBACK)],
         [InlineKeyboardButton(f"⚙️ CFG Scale: {config.get('cfg_scale', 7.0)}", callback_data=CFG_SCALE_CALLBACK)],
         [InlineKeyboardButton(f"🧩 Loras", callback_data=f"{LORAS_CALLBACK}list")],
@@ -57,11 +58,15 @@ async def create_settings_keyboard(config: Dict[str, Any]) -> InlineKeyboardMark
 
 async def create_model_keyboard() -> InlineKeyboardMarkup:
     """Create keyboard with available models."""
-    # Load models only if they're not already loaded
     keyboard = []
 
+    # Fetch models directly from the repository
+    models = await model_repository.get_all_models(active_only=True)
+    
     # Add a button for each model
-    for model_name, model_id in AVAILABLE_MODELS.items():
+    for model in models:
+        model_id = model["id"]
+        model_name = model["name"]
         keyboard.append([InlineKeyboardButton(model_name, callback_data=f"{MODEL_CALLBACK}{model_id}")])
 
     # Add back button
@@ -72,11 +77,15 @@ async def create_model_keyboard() -> InlineKeyboardMarkup:
 
 async def create_loras_keyboard(selected_loras: List[str]) -> InlineKeyboardMarkup:
     """Create keyboard with available loras."""
-    # Load loras only if they're not already loaded
     keyboard = []
 
+    # Fetch loras directly from the repository
+    loras = await model_repository.get_all_loras(active_only=True)
+    
     # Add a button for each lora with selection indicator
-    for lora_name, lora_id in AVAILABLE_LORAS.items():
+    for lora in loras:
+        lora_id = lora["id"]
+        lora_name = lora["name"]
         prefix = "✅ " if lora_id in selected_loras else ""
         keyboard.append([InlineKeyboardButton(f"{prefix}{lora_name}", callback_data=f"{LORAS_CALLBACK}{lora_id}")])
 
