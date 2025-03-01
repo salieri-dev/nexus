@@ -181,16 +181,27 @@ async def imagegen_command(client: Client, message: Message):
                     lora_names.append(lora_data["name"])
             lora_info = ", ".join(lora_names) if lora_names else "None"
             
+            # Get the actual payload that was sent to the API
+            payload = await imagegen_service._prepare_generation_payload(user_id, prompt)
+            
             # Create comprehensive caption with all settings
+            loras_info = []
+            for lora in payload['loras']:
+                lora_path = lora.get('path', '').split('/')[-1]
+                lora_weight = lora.get('weight', 0.7)
+                loras_info.append(f"{lora_path} (weight: {lora_weight})")
+                
             caption = (
                 f"🖼 **Сгенерированные изображения**\n\n"
-                f"**Промпт:** `{prompt}`\n"
-                f"**Негативный промпт:** `{user_config.get('negative_prompt', 'None')}`\n\n"
-                f"**Модель:** {model_name}\n"
-                f"**LoRAs:** {lora_info}\n"
-                f"**CFG Scale:** {user_config.get('cfg_scale', 7.0)}\n"
-                f"**Scheduler:** {scheduler_name}\n"
-                f"**Размер:** {image_size}"
+                f"**Промпт:** `{payload['prompt']}`\n"
+                f"**Негативный промпт:** `{payload['negative_prompt']}`\n\n"
+                f"**Модель:** {payload['model_name'].split('/')[-1] if '/' in payload['model_name'] else payload['model_name']}\n"
+                f"**LoRAs:** {', '.join(loras_info) if loras_info else 'None'}\n"
+                f"**CFG Scale:** {payload['guidance_scale']}\n"
+                f"**Scheduler:** {payload['scheduler']}\n"
+                f"**Размер:** {IMAGE_SIZES.get(payload['image_size'], payload['image_size'])}\n"
+                f"**Clip Skip:** {payload.get('clip_skip', 'N/A')}\n"
+                f"**Шаги:** {payload.get('num_inference_steps', 'N/A')}\n"
             )
 
             # Create media group
@@ -468,7 +479,6 @@ async def handle_imagegen_callback(client: Client, callback_query: CallbackQuery
         
 # Command to add a new model from Civitai
 @Client.on_message(filters.command(["add_model"]), group=4)
-@command_handler(commands=["add_model"], description="Добавить новую модель из Civitai для генерации изображений", group="Нейронки")
 async def add_model_command(client: Client, message: Message):
     """Handler for /add_model command."""
     
