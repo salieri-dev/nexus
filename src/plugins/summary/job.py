@@ -71,7 +71,7 @@ class SummaryJob:
 
         # These will be loaded from config in async init
         self.system_prompt = ""
-        self.model_name = "openai/gpt-4o-mini"  # Default
+        self.model_name = "google/gemini-flash-1.5"  # Default
         self.min_messages_threshold = 60  # Default
 
         # Set logs directory based on environment
@@ -226,8 +226,16 @@ class SummaryJob:
             log.error("Error fetching messages", error=str(e))
             return []
 
-    async def generate_chat_summary(self, chat_id: int, chat_title: str, date: datetime, is_forced: bool = False):
-        """Generate summary for a specific chat."""
+    async def generate_chat_summary(self, chat_id: int, chat_title: str, date: datetime, is_forced: bool = False, return_text: bool = True):
+        """Generate summary for a specific chat.
+        
+        Args:
+            chat_id: The ID of the chat
+            chat_title: The title of the chat
+            date: The date to generate summary for
+            is_forced: Whether this is a forced summary generation
+            return_text: Whether to return the formatted summary text (for sending to chat)
+        """
         try:
             date_str = date.strftime("%Y-%m-%d")
 
@@ -295,7 +303,7 @@ class SummaryJob:
 
             log.info("Summary files written and stored in database", chat_id=chat_id, chat_title=chat_title, log_filename=filename, summary_filename=summary_filename)
 
-            # Format and return summary text
+            # Format summary text
             message_text = "📊 Итоги обсуждений за "
             message_text += "сегодня" if date.date() == datetime.now(MOSCOW_TZ).date() else "вчера"
             message_text += ":\n\n"
@@ -313,7 +321,8 @@ class SummaryJob:
                     message_text += f"• {point}\n"
                 message_text += "\n"
 
-            return message_text
+            # Only return the text if return_text is True
+            return message_text if return_text else None
 
         except InsufficientDataError:
             raise
@@ -355,20 +364,35 @@ class SummaryJob:
                     # Check if summarization is enabled for this chat using the framework
                     from src.config.framework import get_chat_setting
 
-                    if not await get_chat_setting(chat_id, "summary", default=False):
-                        log.debug("Summary disabled for chat", chat_id=chat_id)
-                        continue
-
-                    enabled_count += 1
+                    # Get the summary_enabled setting for this chat
+                    summary_enabled = await get_chat_setting(chat_id, "summary", default=False)
+                    
+                    if summary_enabled:
+                        enabled_count += 1
+                        log.info("Summary enabled for chat", chat_id=chat_id)
+                    else:
+                        log.info("Summary disabled for chat (processing only)", chat_id=chat_id)
 
                     # Get chat title from any message
                     chat_msg = await self.message_repository.find_one_message_by_chat_id(chat_id)
                     chat_title = chat_msg["chat"].get("title", str(chat_id)) if chat_msg else str(chat_id)
 
                     # Generate summary for this chat
-                    summary_text = await self.generate_chat_summary(chat_id, chat_title, yesterday)
-                    if summary_text and client:
+                    # Only return text for sending if summary is enabled
+                    summary_text = await self.generate_chat_summary(
+                        chat_id,
+                        chat_title,
+                        yesterday,
+                        return_text=summary_enabled
+                    )
+                    
+                    # Only increment processed_count if a summary was actually generated
+                    if summary_text is not None:
                         processed_count += 1
+                        log.info("Summary generated for chat", chat_id=chat_id, chat_title=chat_title)
+                    
+                    # Only send the message if summary is enabled and we have text to send
+                    if summary_enabled and summary_text and client:
                         # Send the summary_text to the chat
                         try:
                             await client.send_message(chat_id=chat_id, text=summary_text, disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN)
