@@ -28,6 +28,9 @@ log = get_logger(__name__)
 async def nhentai_handler(client: Client, message: Message):
     """Handler for /nhentai command"""
     fetcher = NhentaiAPI()
+    
+    notification = await message.reply("Пожалуйста подождите, идет загрузка...")
+    
 
     if len(message.command) <= 1:
         try:
@@ -49,18 +52,21 @@ async def nhentai_handler(client: Client, message: Message):
             log.info(f"Fetched random hentai from nhentai.net: {media.title.pretty} - {media.id}")
             album, has_blacklisted_tag = NhentaiService.generate_output_message(media, message.chat.id, message)
             error = await NhentaiService.send_media_group(client, message.chat.id, album, message, use_proxy=fetcher.use_proxy, blur=has_blacklisted_tag)
-
+            await notification.delete()
             if error:
                 await message.reply(f"Error: {error}", quote=True)
             return
 
         except Exception as e:
             log.exception("A detailed exception occurred in get_random: %s", str(e))
+            await notification.delete()
             await message.reply(f"An error occurred while processing your request: {e}", quote=True)
             return
     else:
         query = " ".join(message.command[1:])
-        return await send_search_results(client, message, query, page=1)
+        await send_search_results(client, message, query, page=1)
+        await notification.delete()
+        return 
 
 
 async def send_search_results(client: Client, message, query: str, page: int):
@@ -122,7 +128,7 @@ async def send_search_results(client: Client, message, query: str, page: int):
 
 
 @Client.on_callback_query(filters.regex(r"^nhentai:(\d+)$"))
-@rate_limit(operation="nhentai_callback", window_seconds=30, on_rate_limited=lambda callback_query: callback_query.answer("Please wait before requesting another gallery!", show_alert=True))
+@rate_limit(operation="nhentai_callback", window_seconds=5, on_rate_limited=lambda callback_query: callback_query.answer("Пожалуйста подождите 5 секунд!", show_alert=True))
 async def nhentai_callback_handler(client: Client, callback_query: CallbackQuery):
     fetcher = NhentaiAPI()
     gallery_id = int(callback_query.data.split(":")[1])
@@ -197,7 +203,7 @@ async def nhentai_url_handler(client: Client, message: Message):
 
 
 @Client.on_callback_query(filters.regex(r"^nhentai_page\|(.+)\|(\d+)$"))
-@rate_limit(operation="nhentai_page", window_seconds=30, on_rate_limited=lambda callback_query: callback_query.answer("Please wait before changing pages!", show_alert=True))
+@rate_limit(operation="nhentai_page", window_seconds=30, on_rate_limited=lambda callback_query: callback_query.answer("Подождите пожалуйста 30 секунд!", show_alert=True))
 async def nhentai_page_callback_handler(client: Client, callback_query: CallbackQuery):
     try:
         _, query, page = callback_query.data.split("|")

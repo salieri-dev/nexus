@@ -49,39 +49,35 @@ async def fanfic_handler(client: Client, message: Message):
 
     # Delete the initial "generating" message
     await reply_msg.delete()
-    
+
     # Extract title and content from Pydantic model
     title = fanfic_response.title
     content = fanfic_response.content
     formatted_response = f"{content}"
-    
+
     # Generate image for the fanfic FIRST
     try:
         # Update the message to indicate image generation
         image_msg = await message.reply("Генерирую изображение для фанфика...", quote=True)
-        
+
         # Generate image using FalAI
         image_result = await FanficService.generate_image_with_falai(fanfic_response)
-        
+
         if image_result and "images" in image_result and len(image_result["images"]) > 0:
             image_url = image_result["images"][0]["url"]
-            
+
             # Delete the "generating image" message
             await image_msg.delete()
-            
+
             # Send the image as the FIRST photo reply
-            await message.reply_photo(
-                photo=image_url,
-                caption=f"<b>{title}</b>\n\n<i>Сам фанфик находится ниже!</i>",
-                quote=True
-            )
-            
+            await message.reply_photo(photo=image_url, caption=f"<b>{title}</b>\n\n<i>Сам фанфик находится ниже!</i>", quote=True)
+
             # Then send the text content
             if len(formatted_response) > MAX_MESSAGE_LENGTH:
                 # Send first part
                 first_part = formatted_response[:MAX_MESSAGE_LENGTH]
                 await message.reply(first_part, quote=True, parse_mode=ParseMode.HTML)
-                
+
                 # Send remaining parts
                 remaining = formatted_response[MAX_MESSAGE_LENGTH:]
                 await message.reply(remaining, quote=True, parse_mode=ParseMode.HTML)
@@ -89,29 +85,29 @@ async def fanfic_handler(client: Client, message: Message):
                 await message.reply(formatted_response, quote=True, parse_mode=ParseMode.HTML)
         else:
             await image_msg.edit_text("Не удалось сгенерировать изображение для фанфика.")
-            
+
             # Send text content if image generation failed
             if len(formatted_response) > MAX_MESSAGE_LENGTH:
                 # Send first part
                 first_part = formatted_response[:MAX_MESSAGE_LENGTH]
                 await message.reply(first_part, quote=True, parse_mode=ParseMode.HTML)
-                
+
                 # Send remaining parts
                 remaining = formatted_response[MAX_MESSAGE_LENGTH:]
                 await message.reply(remaining, quote=True, parse_mode=ParseMode.HTML)
             else:
                 await message.reply(formatted_response, quote=True, parse_mode=ParseMode.HTML)
-            
+
     except Exception as e:
         log.error(f"Error generating or sending image: {str(e)}")
         await message.reply(f"Произошла ошибка при генерации изображения: {str(e)}", quote=True)
-        
+
         # Send text content if image generation failed
         if len(formatted_response) > MAX_MESSAGE_LENGTH:
             # Send first part
             first_part = formatted_response[:MAX_MESSAGE_LENGTH]
             await message.reply(first_part, quote=True, parse_mode=ParseMode.HTML)
-            
+
             # Send remaining parts
             remaining = formatted_response[MAX_MESSAGE_LENGTH:]
             await message.reply(remaining, quote=True, parse_mode=ParseMode.HTML)

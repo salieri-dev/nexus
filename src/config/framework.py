@@ -23,7 +23,7 @@ class PeerConfigModel(BaseModel):
     """Base model for peer configuration with core parameters only."""
 
     # Only NSFW is a core parameter
-    nsfw_enabled: bool = Field(default=False, description="Filter NSFW content in this chat", display_name="NSFW Filter")
+    nsfw_enabled: bool = Field(default=False, description="Разрешен ли 18+ контент?", display_name="Разрешен ли 18+ контент?")
 
     # Class variables to store parameter metadata and mappings
     param_registry: ClassVar[Dict[str, ConfigParam]] = {}

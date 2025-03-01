@@ -7,7 +7,7 @@ def register_parameters():
         param_name="dbai_submission_window",
         param_type="plugin:deathbyai",
         default=60,  # 60 seconds default
-        description="Time in seconds for submitting strategies in DeathByAI",
-        display_name="Submission Window",
+        description="Время в секундах для подачи стратегий в DeathByAI",
+        display_name="Какое время в секундах для подачи стратегий в DeathByAI?",
         command_name="dbai_submission_window",
     )

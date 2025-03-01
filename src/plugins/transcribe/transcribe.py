@@ -13,6 +13,7 @@ from src.services.falai import FalAI
 log = get_logger(__name__)
 falai = FalAI()
 
+
 @Client.on_message(filters.voice | filters.audio | filters.video_note, group=1)  # Changed to group 1 to run earlier
 @rate_limit(operation="transcribe", window_seconds=10)
 async def transcribe_handler(client: Client, message: Message):
