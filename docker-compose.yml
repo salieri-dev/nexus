@@ -12,8 +12,7 @@ services:
     env_file:
       - .env
     restart: unless-stopped
-    networks:
-      - app-network
+    network_mode: "host"
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONFAULTHANDLER=1

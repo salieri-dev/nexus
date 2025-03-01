@@ -325,6 +325,7 @@ class NhentaiAPI:
     def __init__(self, use_proxy: bool = None):
         """Initialize with optional proxy usage."""
         self.use_proxy = use_proxy if use_proxy is not None else (os.getenv("USE_PROXY", "false").lower() == "true")
+        log.info(f"Using {self.use_proxy} proxy")
 
     async def _make_request(self, endpoint: str, params: dict = None, retries: int = None) -> dict:
         """Make API requests with retry logic"""
