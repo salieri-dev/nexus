@@ -228,7 +228,7 @@ class SummaryJob:
 
     async def generate_chat_summary(self, chat_id: int, chat_title: str, date: datetime, is_forced: bool = False, return_text: bool = True):
         """Generate summary for a specific chat.
-        
+
         Args:
             chat_id: The ID of the chat
             chat_title: The title of the chat
@@ -366,7 +366,7 @@ class SummaryJob:
 
                     # Get the summary_enabled setting for this chat
                     summary_enabled = await get_chat_setting(chat_id, "summary", default=False)
-                    
+
                     if summary_enabled:
                         enabled_count += 1
                         log.info("Summary enabled for chat", chat_id=chat_id)
@@ -379,18 +379,13 @@ class SummaryJob:
 
                     # Generate summary for this chat
                     # Only return text for sending if summary is enabled
-                    summary_text = await self.generate_chat_summary(
-                        chat_id,
-                        chat_title,
-                        yesterday,
-                        return_text=summary_enabled
-                    )
-                    
+                    summary_text = await self.generate_chat_summary(chat_id, chat_title, yesterday, return_text=summary_enabled)
+
                     # Only increment processed_count if a summary was actually generated
                     if summary_text is not None:
                         processed_count += 1
                         log.info("Summary generated for chat", chat_id=chat_id, chat_title=chat_title)
-                    
+
                     # Only send the message if summary is enabled and we have text to send
                     if summary_enabled and summary_text and client:
                         # Send the summary_text to the chat

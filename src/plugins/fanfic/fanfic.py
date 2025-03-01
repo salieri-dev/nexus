@@ -15,7 +15,7 @@ from .service import FanficService
 log = get_logger(__name__)
 
 
-@Client.on_message(filters.command(["fanfic"]), group=1)
+@Client.on_message(filters.command(["fanfic"]) & ~filters.forwarded, group=1)
 @requires_setting("nsfw")
 @command_handler(commands=["fanfic"], arguments="[тема]", description="Создать фанфик", group="Мемы")
 @rate_limit(

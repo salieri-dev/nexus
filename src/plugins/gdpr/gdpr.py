@@ -31,9 +31,7 @@ async def gdpr_command(client: Client, message: Message):
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Подтвердить удаление", callback_data=CONFIRM_DELETE_CALLBACK), InlineKeyboardButton("❌ Отмена", callback_data=CANCEL_DELETE_CALLBACK)]])
 
         # Send confirmation message
-        await message.reply(
-            "⚠️ **ВНИМАНИЕ!** ⚠️\n\nВы запросили удаление всех ваших сообщений из базы данных бота.\n\n• Это действие **нельзя отменить**\n\nВы уверены, что хотите продолжить?", reply_markup=keyboard, quote=True
-        )
+        await message.reply("⚠️ **ВНИМАНИЕ!** ⚠️\n\nВы запросили удаление всех ваших сообщений из базы данных бота.\n\n• Это действие **нельзя отменить**\n\nВы уверены, что хотите продолжить?", reply_markup=keyboard, quote=True)
 
     except Exception as e:
         log.error("Error handling gdpr command", error=str(e), user_id=message.from_user.id)

@@ -129,7 +129,7 @@ async def handle_thread_generation(message: Message, command: str, system_prompt
         await message.reply("Произошла ошибка на нашей стороне! Напишите пожалуйста @not_salieri, если ошибка происходит вновь.", quote=True)
 
 
-@Client.on_message(filters.command(["bugurt"]), group=1)
+@Client.on_message(filters.command(["bugurt"]) & ~filters.forwarded, group=1)
 @command_handler(commands=["bugurt"], arguments="[тема]", description="Создать бугурт", group="Мемы")
 @rate_limit(
     operation="bugurt_handler",
@@ -141,7 +141,7 @@ async def create_bugurt(client: Client, message: Message):
     await handle_thread_generation(message=message, command="bugurt", system_prompt_path="bugurt/bugurt_system_prompt.txt", response_model=BugurtResponse, image_generator=generate_bugurt_image, error_message="Не удалось сгенерировать бугурт", prompt_language="ru")
 
 
-@Client.on_message(filters.command(["greentext"]), group=1)
+@Client.on_message(filters.command(["greentext"]) & ~filters.forwarded, group=1)
 @command_handler(commands=["greentext"], arguments="[тема]", description="Создать гринтекст", group="Мемы")
 @rate_limit(
     operation="greentext_handler",

@@ -199,45 +199,45 @@ class MessageRepository:
             messages = await cursor.to_list(length=None)
 
         return messages
-        
+
     async def soft_delete_user_messages(self, user_id: int) -> int:
         """
         Soft-delete all messages from a specific user by moving them to the history collection.
-        
+
         Args:
             user_id: The ID of the user whose messages should be soft-deleted
-            
+
         Returns:
             int: Number of messages that were soft-deleted
         """
         log.info("Soft-deleting messages for user", user_id=user_id)
-        
+
         # Try the new structure first (from_user.id)
         query = {"from_user.id": user_id}
         cursor = self.collection.find(query)
         messages = await cursor.to_list(length=None)
-        
+
         # If no messages found, try the old structure (user_id)
         if not messages:
             query = {"user_id": user_id}
             cursor = self.collection.find(query)
             messages = await cursor.to_list(length=None)
-            
+
         if not messages:
             log.info("No messages found for user", user_id=user_id)
             return 0
-            
+
         # Add deletion metadata to each message
         for message in messages:
             message["deleted_at"] = datetime.utcnow()
             message["deletion_type"] = "gdpr_request"
-            
+
         # Insert all messages into the history collection
         if messages:
             await self.history_collection.insert_many(messages)
-            
+
         # Delete messages from the main collection
         delete_result = await self.collection.delete_many({"$or": [{"from_user.id": user_id}, {"user_id": user_id}]})
-        
+
         log.info("Soft-deleted messages for user", user_id=user_id, count=delete_result.deleted_count)
         return delete_result.deleted_count

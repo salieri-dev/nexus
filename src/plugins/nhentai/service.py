@@ -22,6 +22,7 @@ log = get_logger(__name__)
 
 class DownloadError(Exception):
     """Exception raised when image download fails"""
+
     pass
 
 
@@ -56,7 +57,7 @@ class NhentaiService:
 
         domain, path = match.groups()
         is_thumbnail = "/thumb.webp" in path
-        
+
         # Prioritize domains to try
         domains_to_try = []
         if cls.last_successful_domain:
@@ -64,19 +65,19 @@ class NhentaiService:
         if domain != cls.last_successful_domain:
             domains_to_try.append(domain)
         domains_to_try.extend([d for d in NHENTAI_IMAGE_DOMAINS if d not in domains_to_try])
-        
+
         # For thumbnails, prioritize i1.nhentai.net
         if is_thumbnail and "i1.nhentai.net" not in domains_to_try:
             domains_to_try.insert(0, "i1.nhentai.net")
 
         # Create URLs for all domains to try
         urls_to_try = [f"https://{d}{path}" for d in domains_to_try]
-        
+
         # Try all domains in parallel
         async def try_url(url, domain):
-            try:   
+            try:
                 response = await session.get(url)
-                
+
                 if response.status_code == 200:
                     cls.last_successful_domain = domain
                     return io.BytesIO(response.content)
@@ -88,18 +89,18 @@ class NhentaiService:
 
         tasks = [try_url(url, domains_to_try[i]) for i, url in enumerate(urls_to_try)]
         results = await asyncio.gather(*tasks)
-        
+
         # Return first successful result
         for result in results:
             if result is not None:
                 return result
-        
+
         # Try fallbacks for thumbnails and alternative extensions
         if is_thumbnail:
             first_page = await cls._try_first_page_as_thumbnail(path, domains_to_try)
             if first_page:
                 return first_page
-                
+
         alternative = await cls._try_alternative_extension(url, domains_to_try)
         if alternative:
             return alternative
@@ -112,18 +113,18 @@ class NhentaiService:
     async def _try_first_page_as_thumbnail(cls, path, domains_to_try):
         """Try using first page as thumbnail fallback"""
         import re
-        
+
         gallery_match = re.search(r"/galleries/(\d+)/", path)
         if not gallery_match:
             return None
-            
+
         gallery_id = gallery_match.group(1)
         # Try both jpg and webp extensions for the first page
         first_page_urls = []
         for d in domains_to_try:
             first_page_urls.append(f"https://{d}/galleries/{gallery_id}/1.jpg")
             first_page_urls.append(f"https://{d}/galleries/{gallery_id}/1.webp")
-        
+
         # Try all first page URLs in parallel
         async def try_url(url, domain):
             try:
@@ -131,65 +132,65 @@ class NhentaiService:
                     log.info(f"HTTP Request: GET {url}")
                     response = await session.get(url)
                     if response.status_code == 200:
-                        log.info(f"HTTP Request: GET {url} \"HTTP/1.1 200 OK\"")
+                        log.info(f'HTTP Request: GET {url} "HTTP/1.1 200 OK"')
                         cls.last_successful_domain = domain
                         return io.BytesIO(response.content)
                     else:
-                        log.info(f"HTTP Request: GET {url} \"HTTP/1.1 {response.status_code} {response.reason_phrase}\"")
+                        log.info(f'HTTP Request: GET {url} "HTTP/1.1 {response.status_code} {response.reason_phrase}"')
             except Exception as e:
                 log.error(f"Error downloading: {url}, error: {str(e)}")
             return None
-                
+
         tasks = [try_url(url, domains_to_try[i]) for i, url in enumerate(first_page_urls)]
         results = await asyncio.gather(*tasks)
-        
+
         for result in results:
             if result is not None:
                 return result
-                
+
         return None
 
     @classmethod
     async def _try_alternative_extension(cls, url, domains_to_try):
         """Try alternative file extension if original failed"""
         import re
-        
+
         if ".jpg" in url:
             alt_url = url.replace(".jpg", ".webp")
         elif ".webp" in url:
             alt_url = url.replace(".webp", ".jpg")
         else:
             return None
-            
+
         match = re.match(r"https?://([^/]+)(/.+)", alt_url)
         if not match:
             return None
-            
+
         domain, path = match.groups()
         alt_urls = [f"https://{d}{path}" for d in domains_to_try]
-        
+
         async def try_url(url, domain):
             try:
                 async with httpx.AsyncClient(follow_redirects=True) as session:
                     log.info(f"HTTP Request: GET {url}")
                     response = await session.get(url)
                     if response.status_code == 200:
-                        log.info(f"HTTP Request: GET {url} \"HTTP/1.1 200 OK\"")
+                        log.info(f'HTTP Request: GET {url} "HTTP/1.1 200 OK"')
                         cls.last_successful_domain = domain
                         return io.BytesIO(response.content)
                     else:
-                        log.info(f"HTTP Request: GET {url} \"HTTP/1.1 {response.status_code} {response.reason_phrase}\"")
+                        log.info(f'HTTP Request: GET {url} "HTTP/1.1 {response.status_code} {response.reason_phrase}"')
             except Exception as e:
                 log.error(f"Error downloading: {url}, error: {str(e)}")
             return None
-                
+
         tasks = [try_url(url, domains_to_try[i]) for i, url in enumerate(alt_urls)]
         results = await asyncio.gather(*tasks)
-        
+
         for result in results:
             if result is not None:
                 return result
-                
+
         return None
 
     @staticmethod
@@ -228,7 +229,7 @@ class NhentaiService:
 
         # Create album with cover and sample pages
         album = [InputMediaPhoto(media.images.pages[0], caption=caption, parse_mode=ParseMode.HTML)]
-        
+
         # Add sample pages at different points in the gallery
         total_pages = len(media.images.pages)
         sample_percentages = [15, 30, 50, 70, 90]
@@ -250,43 +251,32 @@ class NhentaiService:
             if not should_blur:
                 await message.reply_media_group(media=album, quote=True)
                 return None
-                
+
             # Handle blurring
             log.warning("Blacklisted tags detected. Downloading and blurring images...")
-            client_config = {
-                "timeout": httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0),
-                "proxy": PROXY_URL if use_proxy else None,
-                "follow_redirects": True
-            }
-            
+            client_config = {"timeout": httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0), "proxy": PROXY_URL if use_proxy else None, "follow_redirects": True}
+
             async with httpx.AsyncClient(**client_config) as session:
                 new_album = await NhentaiService._process_album_images(album, session, should_blur)
                 await message.reply_media_group(media=new_album, quote=True)
                 return None
-                
+
         except Exception as e:
             error_msg = str(e)
             # Handle WEBPAGE errors by downloading images first
             if "WEBPAGE" in error_msg:
                 try:
                     log.warning("Failed to send by URL. Downloading and resending...")
-                    client_config = {
-                        "timeout": httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0),
-                        "proxy": PROXY_URL if use_proxy else None,
-                        "follow_redirects": True
-                    }
-                    
+                    client_config = {"timeout": httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0), "proxy": PROXY_URL if use_proxy else None, "follow_redirects": True}
+
                     async with httpx.AsyncClient(**client_config) as session:
-                        new_album = await NhentaiService._process_album_images(
-                            album, session, should_blur
-                        )
+                        new_album = await NhentaiService._process_album_images(album, session, should_blur)
                         await message.reply_media_group(media=new_album, quote=True)
                         return None
                 except Exception as download_e:
-                    log.error("Failed to download and process images", 
-                             extra={"error": str(download_e)})
+                    log.error("Failed to download and process images", extra={"error": str(download_e)})
                     return f"Failed to download and send images: {str(download_e)}"
-                    
+
             log.error("Failed to send media group", extra={"error": error_msg})
             return f"Failed to send media group: {error_msg}"
 
@@ -299,11 +289,7 @@ class NhentaiService:
                 image = await NhentaiService.download_image(media.media, session)
                 if should_blur:
                     image = NhentaiService.blur_image(image)
-                new_media = InputMediaPhoto(
-                    image, 
-                    caption=media.caption, 
-                    parse_mode=media.parse_mode
-                )
+                new_media = InputMediaPhoto(image, caption=media.caption, parse_mode=media.parse_mode)
                 new_album.append(new_media)
             except Exception as img_e:
                 log.error("Failed to process image", extra={"error": str(img_e)})
@@ -331,7 +317,7 @@ class NhentaiAPI:
         """Make API requests with retry logic"""
         if retries is None:
             retries = MAX_RETRIES
-            
+
         client_kwargs = {"proxy": self.PROXY_URL} if self.use_proxy else {}
         url = f"{self.BASE_URL}/{endpoint}"
 
@@ -387,10 +373,10 @@ class NhentaiAPI:
     def parse_images(cls, data: dict) -> Images:
         """Construct image URLs for the gallery"""
         media_id = data["media_id"]
-        
+
         # Select domains based on availability
         image_domain = NhentaiService.last_successful_domain or NHENTAI_IMAGE_DOMAINS[0]
-        
+
         # For thumbnails, use appropriate domain
         if NhentaiService.last_successful_domain:
             thumb_domain = NhentaiService.last_successful_domain
@@ -403,14 +389,14 @@ class NhentaiAPI:
         # Create page URLs with correct extensions
         pages = []
         for i, page in enumerate(data["images"]["pages"]):
-            extension = cls.get_extension(page['t'])
+            extension = cls.get_extension(page["t"])
             page_url = f"https://{image_domain}/galleries/{media_id}/{i + 1}.{extension}"
             pages.append(page_url)
 
         # Create cover and thumbnail URLs using the correct extension
         cover_extension = cls.get_extension(data["images"]["cover"]["t"])
         thumbnail_extension = cls.get_extension(data["images"]["thumbnail"]["t"])
-        
+
         cover_url = f"https://{thumb_domain}/galleries/{media_id}/cover.{cover_extension}"
         thumbnail_url = f"https://{thumb_domain}/galleries/{media_id}/thumb.{thumbnail_extension}"
 
@@ -420,9 +406,9 @@ class NhentaiAPI:
     @staticmethod
     def get_extension(file_type: str) -> str:
         """Map file type to extension"""
-        if file_type == 'j':
+        if file_type == "j":
             return "jpg"
-        elif file_type == 'p':
+        elif file_type == "p":
             return "png"
         else:
             return "webp"
@@ -433,17 +419,7 @@ class NhentaiAPI:
         tags = self.parse_tags(data)
         images = self.parse_images(data)
 
-        return NhentaiGallery(
-            id=data["id"], 
-            media_id=int(data["media_id"]), 
-            title=title, 
-            images=images, 
-            scanlator=data.get("scanlator", ""), 
-            upload_date=data["upload_date"], 
-            tags=tags, 
-            num_pages=data["num_pages"], 
-            num_favorites=data["num_favorites"]
-        )
+        return NhentaiGallery(id=data["id"], media_id=int(data["media_id"]), title=title, images=images, scanlator=data.get("scanlator", ""), upload_date=data["upload_date"], tags=tags, num_pages=data["num_pages"], num_favorites=data["num_favorites"])
 
 
 class CollageCreator:
@@ -502,11 +478,7 @@ class CollageCreator:
 
         # Add border
         draw = ImageDraw.Draw(background)
-        draw.rectangle(
-            [0, 0, target_width - 1, target_height - 1], 
-            outline=(0, 0, 0), 
-            width=border_width
-        )
+        draw.rectangle([0, 0, target_width - 1, target_height - 1], outline=(0, 0, 0), width=border_width)
 
         return background
 
@@ -521,10 +493,7 @@ class CollageCreator:
         position = (0, 0)
 
         # Add semi-transparent background
-        background_shape = [
-            (position[0], position[1]), 
-            (position[0] + text_width + 10, position[1] + text_height + 10)
-        ]
+        background_shape = [(position[0], position[1]), (position[0] + text_width + 10, position[1] + text_height + 10)]
         draw.rectangle(background_shape, fill=(0, 0, 0, 128))
 
         # Draw text
@@ -535,17 +504,14 @@ class CollageCreator:
         """Draw text centered on the image"""
         draw = ImageDraw.Draw(img)
         font = self.get_font(font_size)
-        
+
         # Calculate text dimensions for centering
         text_width = draw.textlength(text, font=font)
         text_height = font_size
-        
+
         # Calculate position to center the text
-        position = (
-            (self.thumb_width - text_width) // 2, 
-            (self.thumb_height - text_height) // 2
-        )
-        
+        position = ((self.thumb_width - text_width) // 2, (self.thumb_height - text_height) // 2)
+
         # Draw text
         draw.text(position, text, font=font, fill=(0, 0, 0))
         return img
@@ -560,16 +526,10 @@ class CollageCreator:
         text_height = 100
 
         # Position at bottom-right
-        position = (
-            self.thumb_width - text_width - 10, 
-            self.thumb_height - text_height - 10
-        )
+        position = (self.thumb_width - text_width - 10, self.thumb_height - text_height - 10)
 
         # Add background for better visibility
-        background_shape = [
-            (position[0] - 5, position[1] - 5), 
-            (position[0] + text_width + 5, position[1] + text_height + 5)
-        ]
+        background_shape = [(position[0] - 5, position[1] - 5), (position[0] + text_width + 5, position[1] + text_height + 5)]
         draw.rectangle(background_shape, fill=(0, 0, 0, 128))
 
         # Draw number
@@ -578,6 +538,7 @@ class CollageCreator:
 
     async def _process_thumbnails(self, posts, client):
         """Process thumbnails in parallel"""
+
         async def process_thumbnail(i, post):
             try:
                 # Download thumbnail
@@ -593,30 +554,27 @@ class CollageCreator:
                 img = self.draw_centered_text(img, "Error")
                 img = self.add_text_to_image(img, f"№ {post.id}")
                 img = self.add_order_number(img, i + 1)
-            
+
             return i, img
-        
+
         # Create tasks for all thumbnails
         tasks = [process_thumbnail(i, post) for i, post in enumerate(posts)]
-        
+
         # Process all thumbnails in parallel
         return await asyncio.gather(*tasks)
 
     async def create_collage(self, posts, start_index, end_index):
         """Create a collage for a subset of posts"""
         collage = Image.new("RGB", (self.collage_width, self.collage_height), (255, 255, 255))
-        
+
         # Create a client for downloading
-        client_config = {
-            "timeout": httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0), 
-            "follow_redirects": True
-        }
-        
+        client_config = {"timeout": httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0), "follow_redirects": True}
+
         async with httpx.AsyncClient(**client_config) as client:
             # Process thumbnails in parallel
             subset_posts = posts[start_index:end_index]
             results = await self._process_thumbnails(subset_posts, client)
-            
+
             # Place images in the collage
             for i, img in results:
                 x = (i % self.thumbnails_per_row) * self.thumb_width
@@ -641,15 +599,12 @@ class CollageCreator:
         collage = Image.new("RGB", (collage_width, self.collage_height), (255, 255, 255))
 
         # Create a client for downloading
-        client_config = {
-            "timeout": httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0), 
-            "follow_redirects": True
-        }
-        
+        client_config = {"timeout": httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=5.0), "follow_redirects": True}
+
         async with httpx.AsyncClient(**client_config) as client:
             # Process thumbnails in parallel
             results = await self._process_thumbnails(posts, client)
-            
+
             # Place images in the collage
             for i, img in results:
                 # Calculate position (column, row)

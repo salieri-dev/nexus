@@ -21,16 +21,15 @@ from src.security.rate_limiter import rate_limit
 log = get_logger(__name__)
 
 
-@Client.on_message(filters.command(["nhentai"], prefixes="/") & ~filters.channel, group=1)
+@Client.on_message(filters.command(["nhentai"], prefixes="/") & ~filters.channel & ~filters.forwarded, group=1)
 @requires_setting("nsfw")
 @command_handler(commands=["nhentai"], arguments="[необяз. поисковый запрос]", description="Случайная додзинся или поиск по nhentai", group="NSFW")
 @rate_limit(operation="nhentai_handler", window_seconds=5, on_rate_limited=lambda message: message.reply("🕒 Подождите 5 секунд перед следующим запросом!"))
 async def nhentai_handler(client: Client, message: Message):
     """Handler for /nhentai command"""
     fetcher = NhentaiAPI()
-    
+
     notification = await message.reply("Пожалуйста подождите, идет загрузка...")
-    
 
     if len(message.command) <= 1:
         try:
@@ -66,7 +65,7 @@ async def nhentai_handler(client: Client, message: Message):
         query = " ".join(message.command[1:])
         await send_search_results(client, message, query, page=1)
         await notification.delete()
-        return 
+        return
 
 
 async def send_search_results(client: Client, message, query: str, page: int):
@@ -163,7 +162,7 @@ async def nhentai_callback_handler(client: Client, callback_query: CallbackQuery
         return
 
 
-@Client.on_message(filters.regex(NHENTAI_URL_PATTERN) & ~filters.channel, group=2)
+@Client.on_message(filters.regex(NHENTAI_URL_PATTERN) & ~filters.channel & ~filters.forwarded, group=2)
 async def nhentai_url_handler(client: Client, message: Message):
     # Check NSFW permission
     nsfw_enabled = await get_chat_setting(message.chat.id, "nsfw_enabled", False)

@@ -36,7 +36,7 @@ def get_summary_repository():
     return SummaryRepository(db_client.client)
 
 
-@Client.on_message(filters.command(["summarize_yesterday"]), group=1)
+@Client.on_message(filters.command(["summarize_yesterday"]) & ~filters.forwarded, group=1)
 @rate_limit(operation="summarize_yesterday_handler", window_seconds=10, on_rate_limited=lambda message: message.reply("🕒 Подождите 1 минуту перед следующим запросом!"))
 async def summarize_yesterday_handler(client: Client, message: Message):
     """Handle /summarize_yesterday command to generate a summary for yesterday"""
@@ -61,7 +61,7 @@ async def summarize_yesterday_handler(client: Client, message: Message):
     await generate_summary_for_date(client, message, yesterday, "вчерашний день")
 
 
-@Client.on_message(filters.command(["summarize_today"]), group=1)
+@Client.on_message(filters.command(["summarize_today"]) & ~filters.forwarded, group=1)
 @rate_limit(operation="summarize_today_handler", window_seconds=60, on_rate_limited=lambda message: message.reply("🕒 Подождите 1 минуту перед следующим запросом!"))
 async def summarize_today_handler(client: Client, message: Message):
     """Handle /summarize_today command to generate a summary for today"""
@@ -85,7 +85,7 @@ async def summarize_today_handler(client: Client, message: Message):
     await generate_summary_for_date(client, message, today, "сегодняшний день")
 
 
-@Client.on_message(filters.command(["summary_stats"]), group=1)
+@Client.on_message(filters.command(["summary_stats"]) & ~filters.forwarded, group=1)
 @rate_limit(operation="summary_stats_handler", window_seconds=5, on_rate_limited=lambda message: message.reply("🕒 Подождите 5 секунд перед следующим запросом!"))
 async def summary_stats_handler(client: Client, message: Message):
     """Handle /summary_stats command to show statistics about generated summaries"""
@@ -123,7 +123,7 @@ async def summary_stats_handler(client: Client, message: Message):
     await message.reply_text(text=stats_text, quote=True, parse_mode=ParseMode.MARKDOWN)
 
 
-@Client.on_message(filters.command(["summary_history"]), group=1)
+@Client.on_message(filters.command(["summary_history"]) & ~filters.forwarded, group=1)
 @rate_limit(operation="summary_history_handler", window_seconds=5, on_rate_limited=lambda message: message.reply("🕒 Подождите 5 секунд перед следующим запросом!"))
 async def summary_history_handler(client: Client, message: Message):
     """Handle /summary_history command to show recent summaries for the chat"""
