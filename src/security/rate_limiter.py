@@ -5,6 +5,7 @@ import structlog
 
 from src.database.client import DatabaseClient
 from src.database.repository.ratelimit_repository import RateLimitRepository
+from src.utils.helpers import is_developer
 
 logger = structlog.get_logger()
 
@@ -47,6 +48,12 @@ def rate_limit(
                     return await func(*args, **kwargs)
 
                 user_id = event.from_user.id
+                
+                # Developer bypass - allow owner to bypass rate limits
+                if is_developer(user_id):
+                    logger.info("Developer bypassed rate limit", user_id=user_id)
+                    return await func(*args, **kwargs)
+                
                 op_name = operation or func.__name__
 
                 # Check rate limit

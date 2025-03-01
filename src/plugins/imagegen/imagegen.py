@@ -140,22 +140,27 @@ async def imagegen_command(client: Client, message: Message):
             # Apply rate limiting only for image generation
             # Check rate limit manually
             user_id = message.from_user.id
-            db_client = DatabaseClient.get_instance()
-            rate_limit_repo = RateLimitRepository(db_client)
             
-            # Check if user is rate limited (3 minutes window)
-            allowed = await rate_limit_repo.check_rate_limit(
-                user_id=user_id,
-                operation="imagegen",
-                window_seconds=180  # 3 minutes
-            )
-            
-            if not allowed:
-                await message.reply(
-                    "⏳ **Слишком много запросов!**\n\nПожалуйста, подождите 3 минуты перед следующей генерацией изображений.",
-                    parse_mode=ParseMode.MARKDOWN
+            # Developer bypass - allow owner to bypass rate limits
+            if is_developer(user_id):
+                log.info("Developer bypassed rate limit for imagegen", user_id=user_id)
+            else:
+                db_client = DatabaseClient.get_instance()
+                rate_limit_repo = RateLimitRepository(db_client)
+                
+                # Check if user is rate limited (3 minutes window)
+                allowed = await rate_limit_repo.check_rate_limit(
+                    user_id=user_id,
+                    operation="imagegen",
+                    window_seconds=180  # 3 minutes
                 )
-                return
+                
+                if not allowed:
+                    await message.reply(
+                        "⏳ **Слишком много запросов!**\n\nПожалуйста, подождите 3 минуты перед следующей генерацией изображений.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    return
                 
             # Get the prompt from the message
             prompt = " ".join(message.command[1:])

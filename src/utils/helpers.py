@@ -25,6 +25,7 @@ def is_developer(user_id: int) -> bool:
         return False
 
     try:
+        log.info("Checking if user is the owner", user_id=user_id, owner_id=owner_id)
         return int(owner_id) == user_id
     except ValueError:
         log.error("OWNER_ID environment variable is not a valid integer")
