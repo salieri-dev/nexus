@@ -8,7 +8,6 @@ import wand.drawing
 import wand.image
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageSequence
 from pyfiglet import figlet_format
-
 from structlog import get_logger
 
 log = get_logger(__name__)

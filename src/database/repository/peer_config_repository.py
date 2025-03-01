@@ -1,6 +1,6 @@
-from typing import Dict, Any, Optional
+from typing import Dict
+
 import structlog
-from pydantic import ValidationError
 
 from src.config.framework import PeerConfigModel
 

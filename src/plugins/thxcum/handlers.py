@@ -1,12 +1,11 @@
 """god forgive me for this"""
 
 import os
-from io import BytesIO
 from typing import Optional, Tuple
 
-from structlog import get_logger
 from pyrogram import Client, filters
 from pyrogram.types import Message
+from structlog import get_logger
 
 from src.plugins.help import command_handler
 from src.plugins.thxcum.service import ThxCumService

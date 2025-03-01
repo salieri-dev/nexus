@@ -2,15 +2,13 @@ from datetime import datetime
 from typing import Optional, Dict, Tuple, Any
 
 from pydantic import BaseModel, Field
-from pyrogram.enums import ParseMode
-from pyrogram.types import Message
 from structlog import get_logger
 
 from src.database.client import DatabaseClient
 from src.database.repository.bot_config_repository import BotConfigRepository
-from src.services.openrouter import OpenRouter
 from src.services.falai import FalAI
-from .constants import DEFAULT_TEMPERATURE, MAX_TOKENS, MAX_MESSAGE_LENGTH, MESSAGES
+from src.services.openrouter import OpenRouter
+from .constants import DEFAULT_TEMPERATURE, MAX_TOKENS, MESSAGES
 from .repository import FanficRepository
 
 log = get_logger(__name__)

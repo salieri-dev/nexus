@@ -1,12 +1,13 @@
 """Service for image generation using fal-ai."""
 
 from typing import Dict, Any, List, Tuple, AsyncGenerator
-from structlog import get_logger
+
 from pyrogram.types import InputMediaPhoto
+from structlog import get_logger
 
 from src.services.falai import FalAI
-from .repository import ImagegenRepository, ImagegenModelRepository
 from .constants import DEFAULT_CONFIG, AVAILABLE_SCHEDULERS
+from .repository import ImagegenRepository, ImagegenModelRepository
 
 log = get_logger(__name__)
 

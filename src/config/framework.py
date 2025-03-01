@@ -1,6 +1,8 @@
-from typing import Dict, Optional, Any, Type, ClassVar, get_type_hints
-from pydantic import BaseModel, Field, ValidationError, create_model
+from typing import Dict, Optional, Any, ClassVar
+
 import structlog
+from pydantic import BaseModel, Field
+
 from src.database.client import DatabaseClient
 
 logger = structlog.get_logger(__name__)

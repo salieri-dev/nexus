@@ -7,8 +7,8 @@ from structlog import get_logger
 
 from src.config.framework import get_chat_setting
 from src.security.rate_limiter import rate_limit
-from .constants import MAX_AUDIO_DURATION, MIN_AUDIO_DURATION, TRANSCRIPTION_ERROR, TRANSCRIPTION_SUCCESS
 from src.services.falai import FalAI
+from .constants import MAX_AUDIO_DURATION, MIN_AUDIO_DURATION, TRANSCRIPTION_ERROR, TRANSCRIPTION_SUCCESS
 
 log = get_logger(__name__)
 falai = FalAI()

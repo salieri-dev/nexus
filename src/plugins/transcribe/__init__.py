@@ -1,4 +1,5 @@
 import structlog
+
 from src.database.client import DatabaseClient
 from src.database.repository.peer_config_repository import PeerConfigRepository
 from .config import register_parameters

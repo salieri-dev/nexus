@@ -2,10 +2,7 @@ import os
 from typing import AsyncGenerator, Dict, Any
 
 import fal_client
-import httpx
 from structlog import get_logger
-
-from src.utils.credentials import Credentials
 
 log = get_logger(__name__)
 

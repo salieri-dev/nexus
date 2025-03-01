@@ -1,11 +1,11 @@
 """Repository for imagegen plugin."""
 
 from typing import Dict, Any, Optional, List
+
 from structlog import get_logger
 
-from src.database.client import DatabaseClient
-from src.database.repository.peer_config_repository import PeerConfigRepository
 from src.config.framework import PeerConfigModel, update_chat_setting, get_chat_setting
+from src.database.client import DatabaseClient
 from .constants import DEFAULT_CONFIG
 
 log = get_logger(__name__)
@@ -109,7 +109,7 @@ class ImagegenModelRepository:
         except Exception as e:
             log.error("Error initializing ImagegenModelRepository", error=str(e))
 
-    async def add_model(self, id: str, name: str, url: str, description: str = "") -> Dict[str, Any]:
+    async def add_model(self, id: str, name: str, url: str, description: str = "", type: str = "MODEL") -> Dict[str, Any]:
         """
         Add a new model to the database.
 
@@ -118,18 +118,19 @@ class ImagegenModelRepository:
             name: The display name of the model
             url: The URL or identifier of the model
             description: Optional description of the model
+            type: The type of model (e.g., "MODEL", "CHECKPOINT", "MERGED")
 
         Returns:
             The added model document
         """
         try:
-            model = {"id": id, "name": name, "url": url, "description": description, "is_active": True}
+            model = {"id": id, "name": name, "url": url, "description": description, "type": type, "is_active": True}
 
             # Insert the model
             result = await self.models_collection.insert_one(model)
             model["_id"] = result.inserted_id
 
-            log.info("Added new model", id=id, name=name)
+            log.info("Added new model", id=id, name=name, type=type)
             return model
         except Exception as e:
             log.error("Error adding model", error=str(e), id=id, name=name)
@@ -234,7 +235,7 @@ class ImagegenModelRepository:
             log.error("Error deleting model", error=str(e), id=id)
             return False
 
-    async def add_lora(self, id: str, name: str, url: str, description: str = "", default_scale: float = 0.7, trigger_words: str = "") -> Dict[str, Any]:
+    async def add_lora(self, id: str, name: str, url: str, description: str = "", default_scale: float = 0.7, trigger_words: str = "", type: str = "LORA") -> Dict[str, Any]:
         """
         Add a new lora to the database.
 
@@ -245,18 +246,19 @@ class ImagegenModelRepository:
             description: Optional description of the lora
             default_scale: Default scale/weight for the lora (default: 0.7)
             trigger_words: Words to add to the prompt when using this lora
+            type: The type of lora (default: "LORA")
 
         Returns:
             The added lora document
         """
         try:
-            lora = {"id": id, "name": name, "url": url, "description": description, "default_scale": default_scale, "trigger_words": trigger_words, "is_active": True}
+            lora = {"id": id, "name": name, "url": url, "description": description, "default_scale": default_scale, "trigger_words": trigger_words, "type": type, "is_active": True}
 
             # Insert the lora
             result = await self.loras_collection.insert_one(lora)
             lora["_id"] = result.inserted_id
 
-            log.info("Added new lora", id=id, name=name)
+            log.info("Added new lora", id=id, name=name, type=type)
             return lora
         except Exception as e:
             log.error("Error adding lora", error=str(e), id=id, name=name)

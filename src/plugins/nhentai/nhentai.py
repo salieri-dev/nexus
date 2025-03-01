@@ -2,7 +2,6 @@
 
 import random
 import re
-from typing import Optional
 
 from pykeyboard import InlineButton, InlineKeyboard
 from pyrogram import Client, filters

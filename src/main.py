@@ -7,13 +7,13 @@ from src.database.repository.bot_config_repository import BotConfigRepository
 from src.database.repository.message_repository import MessageRepository
 from src.database.repository.peer_config_repository import PeerConfigRepository
 from src.plugins.deathbyai import initialize as init_deathbyai
-from src.plugins.transcribe import initialize as init_falai
 from src.plugins.fanfic import initialize as init_fanfic
 from src.plugins.imagegen import initialize as init_imagegen
 from src.plugins.summary import initialize as init_summary_config
 from src.plugins.summary.job import init_summary
 from src.plugins.tanks import init_tanks
 from src.plugins.threads import initialize as init_threads
+from src.plugins.transcribe import initialize as init_falai
 from src.utils.credentials import Credentials
 from src.utils.logging import setup_structlog
 

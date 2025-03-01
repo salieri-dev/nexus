@@ -2,10 +2,10 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 from structlog import get_logger
 
+from src.plugins.help import command_handler
+from src.plugins.magik.service import ImageService
 from src.security.rate_limiter import rate_limit
 from src.utils.helpers import get_photo
-from src.plugins.magik.service import ImageService
-from src.plugins.help import command_handler
 
 # Setup logger
 log = get_logger(__name__)

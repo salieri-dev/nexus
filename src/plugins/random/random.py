@@ -1,10 +1,8 @@
-import random
-from typing import List
-
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from structlog import get_logger
 
+import random
 from src.plugins.help import command_handler
 
 # Setup logger

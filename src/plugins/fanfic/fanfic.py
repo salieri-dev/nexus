@@ -4,7 +4,6 @@ from pyrogram import Client, filters
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message
 from structlog import get_logger
-import httpx
 
 from src.plugins.help import command_handler
 from src.security.permissions import requires_setting

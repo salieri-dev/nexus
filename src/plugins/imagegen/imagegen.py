@@ -1,20 +1,26 @@
 """Image generation command handler."""
 
+from typing import Dict, Any, List
+
 from pyrogram import Client, filters
 from pyrogram.enums import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from structlog import get_logger
-from typing import Dict, Any, List
 
 from src.plugins.help import command_handler
-from .constants import CALLBACK_PREFIX, MODEL_CALLBACK, NEGATIVE_PROMPT_CALLBACK, CFG_SCALE_CALLBACK, LORAS_CALLBACK, SCHEDULER_CALLBACK, IMAGE_SIZE_CALLBACK, BACK_CALLBACK, AVAILABLE_MODELS, AVAILABLE_LORAS, AVAILABLE_SCHEDULERS, IMAGE_SIZES
+from .constants import CALLBACK_PREFIX, MODEL_CALLBACK, NEGATIVE_PROMPT_CALLBACK, CFG_SCALE_CALLBACK, LORAS_CALLBACK, SCHEDULER_CALLBACK, IMAGE_SIZE_CALLBACK, BACK_CALLBACK, AVAILABLE_SCHEDULERS, IMAGE_SIZES
 from .repository import ImagegenRepository, ImagegenModelRepository
 from .service import ImagegenService
 
 log = get_logger(__name__)
 
-# Initialize the image generation service once at the module level
+# Initialize the image generation service and repositories
 imagegen_service = ImagegenService()
+model_repository = ImagegenModelRepository()
+
+# These will be populated when needed
+AVAILABLE_MODELS = {}
+AVAILABLE_LORAS = {}
 
 
 async def create_settings_keyboard(config: Dict[str, Any]) -> InlineKeyboardMarkup:
@@ -30,7 +36,7 @@ async def create_settings_keyboard(config: Dict[str, Any]) -> InlineKeyboardMark
     # We'll load models and loras only when needed, not on every keyboard creation
 
     # Get current values for display
-    current_model = next((name for name, value in AVAILABLE_MODELS.items() if value == config.get("model")), "Не выбрано")
+    current_model = config.get("model")
 
     current_scheduler = next((name for name, value in AVAILABLE_SCHEDULERS.items() if value == config.get("scheduler")), "Не выбрано")
 
@@ -273,217 +279,107 @@ async def handle_imagegen_callback(client: Client, callback_query: CallbackQuery
         await callback_query.answer("❌ Произошла ошибка при обработке настроек.")
 
 
-# Message handlers for text input settings
-@Client.on_message(filters.reply & ~filters.command(["cancel"]), group=2)
-async def handle_imagegen_text_input(client: Client, message: Message):
-    """Handle text input for imagegen settings."""
-    try:
-        # Check if the message is a reply to a bot message about imagegen settings
-        if not message.reply_to_message or not message.reply_to_message.from_user or message.reply_to_message.from_user.id != client.me.id:
-            return
-
-        # Check if the replied message contains imagegen settings text
-        replied_text = message.reply_to_message.text or message.reply_to_message.caption or ""
-
-        # Handle negative prompt input
-        if "Негативный промпт" in replied_text and "Отправьте новый негативный промпт" in replied_text:
-            # Get the negative prompt from the message
-            negative_prompt = message.text.strip()
-
-            # Validate length
-            if len(negative_prompt) > 512:
-                await message.reply("❌ Негативный промпт слишком длинный (максимум 512 символов).")
-                return
-
-            # Update negative prompt setting
-            chat_id = message.chat.id
-            await ImagegenRepository.update_imagegen_setting(chat_id, "negative_prompt", negative_prompt)
-
-            # Update config and show main settings
-            config = await ImagegenRepository.get_imagegen_config(chat_id)
-            keyboard = await create_settings_keyboard(config)
-
-            await message.reply(f"⚙️ **Настройки генерации изображений**\n\n✅ Негативный промпт успешно изменен\n\nВыберите параметр для настройки:", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
-            return
-
-        # Handle CFG Scale input
-        if "CFG Scale" in replied_text and "Отправьте новое значение CFG Scale" in replied_text:
-            # Get the CFG Scale from the message
-            try:
-                cfg_scale = float(message.text.strip())
-
-                # Validate range (typical range for CFG Scale)
-                if cfg_scale < 1.0 or cfg_scale > 30.0:
-                    await message.reply("❌ CFG Scale должен быть в диапазоне от 1.0 до 30.0.")
-                    return
-
-                # Update CFG Scale setting
-                chat_id = message.chat.id
-                await ImagegenRepository.update_imagegen_setting(chat_id, "cfg_scale", cfg_scale)
-
-                # Update config and show main settings
-                config = await ImagegenRepository.get_imagegen_config(chat_id)
-                keyboard = await create_settings_keyboard(config)
-
-                await message.reply(f"⚙️ **Настройки генерации изображений**\n\n✅ CFG Scale успешно изменен\n\nВыберите параметр для настройки:", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
-            except ValueError:
-                await message.reply("❌ Пожалуйста, введите корректное число с плавающей точкой.")
-            return
-
-    except Exception as e:
-        log.error("Error handling imagegen text input", error=str(e))
-        await message.reply("❌ Произошла ошибка при обработке настроек.")
+import httpx
+import re
 
 
-# Cancel command handler
-@Client.on_message(filters.command(["cancel"]), group=3)
-async def handle_cancel(client: Client, message: Message):
-    """Handle /cancel command for imagegen settings."""
-    try:
-        # Check if the message is a reply to a bot message about imagegen settings
-        if not message.reply_to_message or not message.reply_to_message.from_user or message.reply_to_message.from_user.id != client.me.id:
-            return
-
-        # Check if the replied message contains imagegen settings text
-        replied_text = message.reply_to_message.text or message.reply_to_message.caption or ""
-
-        if "Негативный промпт" in replied_text or "CFG Scale" in replied_text:
-            # Get current config
-            chat_id = message.chat.id
-            config = await ImagegenRepository.get_imagegen_config(chat_id)
-
-            # Create settings keyboard
-            keyboard = await create_settings_keyboard(config)
-
-            # Send settings message
-            await message.reply("⚙️ **Настройки генерации изображений**\n\nОперация отменена.\n\nВыберите параметр для настройки:", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
-
-    except Exception as e:
-        log.error("Error handling cancel command", error=str(e))
-        await message.reply("❌ Произошла ошибка при обработке команды отмены.")
-
-
-# Command to add a new model
+# Command to add a new model from Civitai
 @Client.on_message(filters.command(["add_model"]), group=4)
-@command_handler(commands=["add_model"], description="Добавить новую модель для генерации изображений", group="Изображения")
+@command_handler(commands=["add_model"], description="Добавить новую модель из Civitai для генерации изображений", group="Изображения")
 async def add_model_command(client: Client, message: Message):
     """Handler for /add_model command."""
     try:
         # Check command format
-        command_parts = message.text.split(maxsplit=4)
+        command_parts = message.text.split(maxsplit=1)
 
-        if len(command_parts) < 4:
-            await message.reply('❌ **Неверный формат команды**\n\nИспользуйте: `/add_model id название_модели URL [описание]`\n\nПример: `/add_model sdxl "Stable Diffusion XL" https://example.com/model.safetensors "Описание модели"`', parse_mode=ParseMode.MARKDOWN)
+        if len(command_parts) < 2:
+            await message.reply("❌ **Неверный формат команды**\n\nИспользуйте: `/add_model URL_или_ID`\n\nПример: `/add_model https://civitai.com/models/486237` или `/add_model 486237`", parse_mode=ParseMode.MARKDOWN)
             return
+
+        # Extract model ID from URL or direct ID
+        model_input = command_parts[1].strip()
+        model_id = None
+
+        # Check if it's a URL or direct ID
+        if model_input.isdigit():
+            model_id = model_input
+        else:
+            # Try to extract ID from URL
+            url_match = re.search(r"civitai\.com/models/(\d+)", model_input)
+            if url_match:
+                model_id = url_match.group(1)
+            else:
+                await message.reply("❌ **Неверный формат URL или ID**\n\nИспользуйте: `/add_model https://civitai.com/models/486237` или `/add_model 486237`", parse_mode=ParseMode.MARKDOWN)
+                return
+
+        # Send a processing message
+        processing_msg = await message.reply("🔄 **Получение информации о модели с Civitai...**", parse_mode=ParseMode.MARKDOWN)
+
+        # Fetch model data from Civitai API
+        async with httpx.AsyncClient() as client:
+            api_url = f"https://civitai.com/api/v1/models/{model_id}"
+            response = await client.get(api_url)
+
+            if response.status_code != 200:
+                await processing_msg.edit_text(f"❌ **Ошибка при получении данных с Civitai API**\n\nСтатус: {response.status_code}", parse_mode=ParseMode.MARKDOWN)
+                return
+
+            model_data = response.json()
 
         # Extract model details
-        model_id = command_parts[1].strip("\"'").lower()
-        model_name = command_parts[2].strip("\"'")
-        model_url = command_parts[3].strip("\"'")
-        model_description = command_parts[4].strip("\"'") if len(command_parts) > 4 else ""
+        model_name = model_data.get("name", "Unknown Model")
+        model_type = model_data.get("type", "MODEL")
+        model_description = model_data.get("description", "")
 
-        # Initialize repository
-        repo = ImagegenModelRepository()
-        await repo.initialize()
+        # Clean up HTML tags from description
+        model_description = re.sub(r"<[^>]+>", "", model_description)
+        model_description = model_description[:200] + "..." if len(model_description) > 200 else model_description
 
-        # Add model to database
-        await repo.add_model(model_id, model_name, model_url, model_description)
-
-        await message.reply(f"✅ **Модель успешно добавлена**\n\nНазвание: {model_name}\nURL: {model_url}\nОписание: {model_description}", parse_mode=ParseMode.MARKDOWN)
-    except Exception as e:
-        log.error("Error adding model", error=str(e))
-        await message.reply(f"❌ Произошла ошибка при добавлении модели: {str(e)}")
-
-
-# Command to add a new lora
-@Client.on_message(filters.command(["add_lora"]), group=5)
-@command_handler(commands=["add_lora"], description="Добавить новую Lora для генерации изображений", group="Изображения")
-async def add_lora_command(client: Client, message: Message):
-    """Handler for /add_lora command."""
-    try:
-        # Check command format
-        command_parts = message.text.split(maxsplit=4)
-
-        if len(command_parts) < 4:
-            await message.reply('❌ **Неверный формат команды**\n\nИспользуйте: `/add_lora id название_lora URL [описание]`\n\nПример: `/add_lora detail_xl "Add Detail XL" https://example.com/lora.safetensors "Описание lora"`', parse_mode=ParseMode.MARKDOWN)
+        # Get the latest model version
+        model_versions = model_data.get("modelVersions", [])
+        if not model_versions:
+            await processing_msg.edit_text("❌ **Не найдены версии модели**", parse_mode=ParseMode.MARKDOWN)
             return
 
-        # Extract lora details
-        lora_id = command_parts[1].strip("\"'").lower()
-        lora_name = command_parts[2].strip("\"'")
-        lora_url = command_parts[3].strip("\"'")
-        lora_description = command_parts[4].strip("\"'") if len(command_parts) > 4 else ""
+        latest_version = model_versions[0]
 
-        # Initialize repository
-        repo = ImagegenModelRepository()
-        await repo.initialize()
-
-        # Add lora to database
-        await repo.add_lora(lora_id, lora_name, lora_url, lora_description)
-
-        await message.reply(f"✅ **Lora успешно добавлена**\n\nНазвание: {lora_name}\nURL: {lora_url}\nОписание: {lora_description}", parse_mode=ParseMode.MARKDOWN)
-    except Exception as e:
-        log.error("Error adding lora", error=str(e))
-        await message.reply(f"❌ Произошла ошибка при добавлении lora: {str(e)}")
-
-
-# Command to list all models
-@Client.on_message(filters.command(["list_models"]), group=6)
-@command_handler(commands=["list_models"], description="Показать список доступных моделей", group="Изображения")
-async def list_models_command(client: Client, message: Message):
-    """Handler for /list_models command."""
-    try:
-        # Initialize repository
-        repo = ImagegenModelRepository()
-        await repo.initialize()
-
-        # Get all models
-        models = await repo.get_all_models(active_only=False)
-
-        if not models:
-            await message.reply("❌ Нет доступных моделей.")
+        # Get download URL
+        files = latest_version.get("files", [])
+        if not files:
+            await processing_msg.edit_text("❌ **Не найдены файлы для скачивания**", parse_mode=ParseMode.MARKDOWN)
             return
 
-        # Format models list
-        models_text = "📋 **Список доступных моделей:**\n\n"
+        primary_file = next((f for f in files if f.get("primary", False)), files[0])
+        download_url = primary_file.get("downloadUrl", "")
 
-        for i, model in enumerate(models, 1):
-            status = "✅ Активна" if model.get("is_active", True) else "❌ Неактивна"
-            description = f"\n   {model.get('description')}" if model.get("description") else ""
-            models_text += f"{i}. **{model['name']}** (ID: `{model['id']}`) - {status}{description}\n   URL: `{model['url']}`\n\n"
+        if not download_url:
+            await processing_msg.edit_text("❌ **Не найден URL для скачивания**", parse_mode=ParseMode.MARKDOWN)
+            return
 
-        await message.reply(models_text, parse_mode=ParseMode.MARKDOWN)
-    except Exception as e:
-        log.error("Error listing models", error=str(e))
-        await message.reply(f"❌ Произошла ошибка при получении списка моделей: {str(e)}")
+        # Get additional info
+        base_model = latest_version.get("baseModel", "Unknown")
+        trained_words = latest_version.get("trainedWords", [])
+        trigger_words = ", ".join(trained_words) if trained_words else ""
 
+        # Generate a unique ID
+        unique_id = f"{model_type.lower()}_{model_id}".lower()
 
-# Command to list all loras
-@Client.on_message(filters.command(["list_loras"]), group=7)
-@command_handler(commands=["list_loras"], description="Показать список доступных Loras", group="Изображения")
-async def list_loras_command(client: Client, message: Message):
-    """Handler for /list_loras command."""
-    try:
         # Initialize repository
         repo = ImagegenModelRepository()
         await repo.initialize()
 
-        # Get all loras
-        loras = await repo.get_all_loras(active_only=False)
+        # Add model to database with appropriate type
+        if model_type == "LORA":
+            # For LORA type, use add_lora with default scale and trigger words
+            default_scale = 0.7
+            await repo.add_lora(unique_id, model_name, download_url, model_description, default_scale, trigger_words, model_type)
+            success_message = f"✅ **Lora успешно добавлена с Civitai**\n\nID: {unique_id}\nНазвание: {model_name}\nТип: {model_type}\nБазовая модель: {base_model}\nTrigger Words: {trigger_words}\nURL: {download_url}\nОписание: {model_description}"
+        else:
+            # For other types, use add_model
+            await repo.add_model(unique_id, model_name, download_url, model_description, model_type)
+            success_message = f"✅ **Модель успешно добавлена с Civitai**\n\nID: {unique_id}\nНазвание: {model_name}\nТип: {model_type}\nБазовая модель: {base_model}\nURL: {download_url}\nОписание: {model_description}"
 
-        if not loras:
-            await message.reply("❌ Нет доступных Loras.")
-            return
-
-        # Format loras list
-        loras_text = "📋 **Список доступных Loras:**\n\n"
-
-        for i, lora in enumerate(loras, 1):
-            status = "✅ Активна" if lora.get("is_active", True) else "❌ Неактивна"
-            description = f"\n   {lora.get('description')}" if lora.get("description") else ""
-            loras_text += f"{i}. **{lora['name']}** (ID: `{lora['id']}`) - {status}{description}\n   URL: `{lora['url']}`\n\n"
-
-        await message.reply(loras_text, parse_mode=ParseMode.MARKDOWN)
+        await processing_msg.edit_text(success_message, parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
-        log.error("Error listing loras", error=str(e))
-        await message.reply(f"❌ Произошла ошибка при получении списка Loras: {str(e)}")
+        log.error("Error adding model from Civitai", error=str(e))
+        await message.reply(f"❌ Произошла ошибка при добавлении модели: {str(e)}", parse_mode=ParseMode.MARKDOWN)

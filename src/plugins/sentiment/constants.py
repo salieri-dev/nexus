@@ -1,5 +1,3 @@
-from typing import Dict, List
-
 # Russian messages only as per requirements
 MESSAGES = {
     "SENTIMENT_PRIVATE_CHAT": "Эта команда может быть использована только в группах или супергруппах.",

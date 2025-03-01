@@ -9,7 +9,6 @@ from typing import Optional, Tuple, Union
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-
 from structlog import get_logger
 
 log = get_logger(__name__)

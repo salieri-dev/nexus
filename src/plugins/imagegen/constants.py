@@ -1,7 +1,5 @@
 """Constants for the imagegen plugin."""
 
-from typing import Dict, Any
-
 # Default configuration for imagegen
 DEFAULT_CONFIG = {"model": "wai_illistrious", "negative_prompt": "low quality, bad anatomy, worst quality, low resolution", "cfg_scale": 5.0, "loras": [], "scheduler": "dpm_2m_sde_karras", "image_size": "square_hd"}
 
