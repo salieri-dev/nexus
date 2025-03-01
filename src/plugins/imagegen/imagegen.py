@@ -361,6 +361,19 @@ async def add_model_command(client: Client, message: Message):
         trained_words = latest_version.get("trainedWords", [])
         trigger_words = ", ".join(trained_words) if trained_words else ""
 
+        # Get preview image URL
+        preview_url = ""
+        images = latest_version.get("images", [])
+        if images:
+            # Filter for images of type "image" (not video)
+            image_type_images = [img for img in images if img.get("type") == "image"]
+            if image_type_images:
+                # Use the first image of type "image" as preview
+                preview_url = image_type_images[0].get("url", "")
+            elif images:
+                # Fallback to first image if no image type found
+                preview_url = images[0].get("url", "")
+
         # Generate a unique ID
         unique_id = f"{model_type.lower()}_{model_id}".lower()
 
@@ -372,12 +385,12 @@ async def add_model_command(client: Client, message: Message):
         if model_type == "LORA":
             # For LORA type, use add_lora with default scale and trigger words
             default_scale = 0.7
-            await repo.add_lora(unique_id, model_name, download_url, model_description, default_scale, trigger_words, model_type)
-            success_message = f"✅ **Lora успешно добавлена с Civitai**\n\nID: {unique_id}\nНазвание: {model_name}\nТип: {model_type}\nБазовая модель: {base_model}\nTrigger Words: {trigger_words}\nURL: {download_url}\nОписание: {model_description}"
+            await repo.add_lora(unique_id, model_name, download_url, model_description, default_scale, trigger_words, model_type, preview_url)
+            success_message = f"✅ **Lora успешно добавлена с Civitai**\n\nID: {unique_id}\nНазвание: {model_name}\nТип: {model_type}\nБазовая модель: {base_model}\nTrigger Words: {trigger_words}\nURL: {download_url}\nPreview: {preview_url}\nОписание: {model_description}"
         else:
             # For other types, use add_model
-            await repo.add_model(unique_id, model_name, download_url, model_description, model_type)
-            success_message = f"✅ **Модель успешно добавлена с Civitai**\n\nID: {unique_id}\nНазвание: {model_name}\nТип: {model_type}\nБазовая модель: {base_model}\nURL: {download_url}\nОписание: {model_description}"
+            await repo.add_model(unique_id, model_name, download_url, model_description, model_type, preview_url)
+            success_message = f"✅ **Модель успешно добавлена с Civitai**\n\nID: {unique_id}\nНазвание: {model_name}\nТип: {model_type}\nБазовая модель: {base_model}\nURL: {download_url}\nPreview: {preview_url}\nОписание: {model_description}"
 
         await processing_msg.edit_text(success_message, parse_mode=ParseMode.MARKDOWN)
     except Exception as e:

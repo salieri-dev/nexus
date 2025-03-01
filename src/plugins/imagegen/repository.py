@@ -94,7 +94,6 @@ class ImagegenModelRepository:
         self.db_client = DatabaseClient.get_instance()
         self.db = self.db_client.db
         self.models_collection = self.db["imagegen_models"]
-        self.loras_collection = self.db["imagegen_loras"]
 
     async def initialize(self):
         """Initialize the repository by creating indexes."""
@@ -102,14 +101,11 @@ class ImagegenModelRepository:
             # Create unique index on id field for models
             await self.models_collection.create_index("id", unique=True)
 
-            # Create unique index on id field for loras
-            await self.loras_collection.create_index("id", unique=True)
-
             log.info("ImagegenModelRepository initialized successfully")
         except Exception as e:
             log.error("Error initializing ImagegenModelRepository", error=str(e))
 
-    async def add_model(self, id: str, name: str, url: str, description: str = "", type: str = "MODEL") -> Dict[str, Any]:
+    async def add_model(self, id: str, name: str, url: str, description: str = "", type: str = "MODEL", preview_url: str = "") -> Dict[str, Any]:
         """
         Add a new model to the database.
 
@@ -119,12 +115,13 @@ class ImagegenModelRepository:
             url: The URL or identifier of the model
             description: Optional description of the model
             type: The type of model (e.g., "MODEL", "CHECKPOINT", "MERGED")
+            preview_url: Optional URL to a preview image of the model
 
         Returns:
             The added model document
         """
         try:
-            model = {"id": id, "name": name, "url": url, "description": description, "type": type, "is_active": True}
+            model = {"id": id, "name": name, "url": url, "description": description, "type": type, "is_active": True, "preview_url": preview_url}
 
             # Insert the model
             result = await self.models_collection.insert_one(model)
@@ -147,7 +144,10 @@ class ImagegenModelRepository:
             List of model documents
         """
         try:
-            query = {"is_active": True} if active_only else {}
+            query = {"type": {"$ne": "LORA"}}  # Exclude LORA type
+            if active_only:
+                query["is_active"] = True
+                
             cursor = self.models_collection.find(query)
             models = await cursor.to_list(length=None)
             return models
@@ -166,7 +166,11 @@ class ImagegenModelRepository:
             The model document or None if not found
         """
         try:
-            return await self.models_collection.find_one({"id": id})
+            # First try to find a model with the exact id
+            model = await self.models_collection.find_one({"id": id})
+            
+            # If found, return it regardless of type
+            return model
         except Exception as e:
             log.error("Error getting model by id", error=str(e), id=id)
             return None
@@ -182,6 +186,14 @@ class ImagegenModelRepository:
             The model document or None if not found
         """
         try:
+            # First try to find a model with the exact name and not of type LORA
+            model = await self.models_collection.find_one({"name": name, "type": {"$ne": "LORA"}})
+            
+            # If found, return it
+            if model:
+                return model
+                
+            # If not found, try to find any model with the exact name
             return await self.models_collection.find_one({"name": name})
         except Exception as e:
             log.error("Error getting model by name", error=str(e), name=name)
@@ -199,7 +211,8 @@ class ImagegenModelRepository:
             The updated model document or None if not found
         """
         try:
-            result = await self.models_collection.update_one({"id": id}, {"$set": updates})
+            # Update the model with the given id and not of type LORA
+            result = await self.models_collection.update_one({"id": id, "type": {"$ne": "LORA"}}, {"$set": updates})
 
             if result.matched_count == 0:
                 log.warning("Model not found for update", id=id)
@@ -222,7 +235,8 @@ class ImagegenModelRepository:
             True if the model was deleted, False otherwise
         """
         try:
-            result = await self.models_collection.delete_one({"id": id})
+            # Delete the model with the given id and not of type LORA
+            result = await self.models_collection.delete_one({"id": id, "type": {"$ne": "LORA"}})
             success = result.deleted_count > 0
 
             if success:
@@ -235,7 +249,7 @@ class ImagegenModelRepository:
             log.error("Error deleting model", error=str(e), id=id)
             return False
 
-    async def add_lora(self, id: str, name: str, url: str, description: str = "", default_scale: float = 0.7, trigger_words: str = "", type: str = "LORA") -> Dict[str, Any]:
+    async def add_lora(self, id: str, name: str, url: str, description: str = "", default_scale: float = 0.7, trigger_words: str = "", type: str = "LORA", preview_url: str = "") -> Dict[str, Any]:
         """
         Add a new lora to the database.
 
@@ -247,15 +261,16 @@ class ImagegenModelRepository:
             default_scale: Default scale/weight for the lora (default: 0.7)
             trigger_words: Words to add to the prompt when using this lora
             type: The type of lora (default: "LORA")
+            preview_url: Optional URL to a preview image of the lora
 
         Returns:
             The added lora document
         """
         try:
-            lora = {"id": id, "name": name, "url": url, "description": description, "default_scale": default_scale, "trigger_words": trigger_words, "type": type, "is_active": True}
+            lora = {"id": id, "name": name, "url": url, "description": description, "default_scale": default_scale, "trigger_words": trigger_words, "type": type, "is_active": True, "preview_url": preview_url}
 
-            # Insert the lora
-            result = await self.loras_collection.insert_one(lora)
+            # Insert the lora into the models collection
+            result = await self.models_collection.insert_one(lora)
             lora["_id"] = result.inserted_id
 
             log.info("Added new lora", id=id, name=name, type=type)
@@ -275,8 +290,11 @@ class ImagegenModelRepository:
             List of lora documents
         """
         try:
-            query = {"is_active": True} if active_only else {}
-            cursor = self.loras_collection.find(query)
+            query = {"type": "LORA"}
+            if active_only:
+                query["is_active"] = True
+                
+            cursor = self.models_collection.find(query)
             loras = await cursor.to_list(length=None)
             return loras
         except Exception as e:
@@ -294,7 +312,7 @@ class ImagegenModelRepository:
             The lora document or None if not found
         """
         try:
-            return await self.loras_collection.find_one({"id": id})
+            return await self.models_collection.find_one({"id": id, "type": "LORA"})
         except Exception as e:
             log.error("Error getting lora by id", error=str(e), id=id)
             return None
@@ -310,7 +328,7 @@ class ImagegenModelRepository:
             The lora document or None if not found
         """
         try:
-            return await self.loras_collection.find_one({"name": name})
+            return await self.models_collection.find_one({"name": name, "type": "LORA"})
         except Exception as e:
             log.error("Error getting lora by name", error=str(e), name=name)
             return None
@@ -327,7 +345,7 @@ class ImagegenModelRepository:
             The updated lora document or None if not found
         """
         try:
-            result = await self.loras_collection.update_one({"id": id}, {"$set": updates})
+            result = await self.models_collection.update_one({"id": id, "type": "LORA"}, {"$set": updates})
 
             if result.matched_count == 0:
                 log.warning("Lora not found for update", id=id)
@@ -350,7 +368,7 @@ class ImagegenModelRepository:
             True if the lora was deleted, False otherwise
         """
         try:
-            result = await self.loras_collection.delete_one({"id": id})
+            result = await self.models_collection.delete_one({"id": id, "type": "LORA"})
             success = result.deleted_count > 0
 
             if success:
@@ -363,30 +381,33 @@ class ImagegenModelRepository:
             log.error("Error deleting lora", error=str(e), id=id)
             return False
 
-    async def get_models_dict(self) -> Dict[str, str]:
+    async def get_models_dict(self) -> Dict[str, Dict[str, str]]:
         """
-        Get all models as a dictionary mapping id to URL.
+        Get all models as a dictionary mapping id to model details.
 
         Returns:
-            Dictionary with model ids as keys and URLs as values
+            Dictionary with model ids as keys and model details as values
         """
         try:
-            models = await self.get_all_models(active_only=True)
-            return {model["id"]: model["url"] for model in models}
+            # Get models that are not of type LORA
+            query = {"is_active": True, "type": {"$ne": "LORA"}}
+            cursor = self.models_collection.find(query)
+            models = await cursor.to_list(length=None)
+            return {model["id"]: {"url": model["url"], "preview_url": model.get("preview_url", "")} for model in models}
         except Exception as e:
             log.error("Error getting models dict", error=str(e))
             return {}
 
-    async def get_loras_dict(self) -> Dict[str, str]:
+    async def get_loras_dict(self) -> Dict[str, Dict[str, str]]:
         """
-        Get all loras as a dictionary mapping id to URL.
+        Get all loras as a dictionary mapping id to lora details.
 
         Returns:
-            Dictionary with lora ids as keys and URLs as values
+            Dictionary with lora ids as keys and lora details as values
         """
         try:
             loras = await self.get_all_loras(active_only=True)
-            return {lora["id"]: lora["url"] for lora in loras}
+            return {lora["id"]: {"url": lora["url"], "preview_url": lora.get("preview_url", "")} for lora in loras}
         except Exception as e:
             log.error("Error getting loras dict", error=str(e))
             return {}

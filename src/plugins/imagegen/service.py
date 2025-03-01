@@ -53,6 +53,29 @@ class ImagegenService:
             raise ValueError(f"Model not found: {model_id}")
 
         return model_data["url"]
+    
+    @staticmethod
+    async def _get_model_preview_url(model_id: str) -> str:
+        """
+        Get model preview URL from model ID.
+
+        Args:
+            model_id: The model ID to look up
+
+        Returns:
+            The model preview URL or empty string if not found
+
+        Raises:
+            ValueError: If the model is not found
+        """
+        repo = ImagegenService.get_model_repository()
+        model_data = await repo.get_model_by_id(model_id)
+
+        if not model_data:
+            log.error("Model not found", model_id=model_id)
+            raise ValueError(f"Model not found: {model_id}")
+
+        return model_data.get("preview_url", "")
 
     @staticmethod
     async def _get_scheduler_display_name(scheduler_id: str) -> str:
@@ -118,12 +141,16 @@ class ImagegenService:
             lora_data = await repo.get_lora_by_id(lora_id)
             if lora_data:
                 # Add lora configuration
-                loras.append(
-                    {
-                        "path": lora_data["url"],  # The API expects 'path' not 'model_name'
-                        "weight": lora_data.get("default_scale", 0.7),  # Use default_scale from database
-                    }
-                )
+                lora_config = {
+                    "path": lora_data["url"],  # The API expects 'path' not 'model_name'
+                    "weight": lora_data.get("default_scale", 0.7),  # Use default_scale from database
+                }
+                
+                # Add preview_url if available
+                if lora_data.get("preview_url"):
+                    lora_config["preview_url"] = lora_data["preview_url"]
+                    
+                loras.append(lora_config)
 
                 # Collect trigger words if any
                 if lora_data.get("trigger_words"):
@@ -179,24 +206,28 @@ class ImagegenService:
         return payload
 
     @staticmethod
-    async def _extract_image_urls(handler: Dict[str, Any]) -> List[str]:
+    async def _extract_image_urls(handler: Dict[str, Any]) -> List[Dict[str, str]]:
         """
-        Extract image URLs from the API response.
+        Extract image URLs and preview URLs from the API response.
 
         Args:
             handler: The API response handler
 
         Returns:
-            List of image URLs
+            List of dictionaries containing image URLs and preview URLs
         """
-        image_urls = []
+        images = []
         if "images" in handler:
             for image in handler["images"]:
+                image_data = {}
                 if "url" in image:
-                    image_urls.append(image["url"])
+                    image_data["url"] = image["url"]
+                    # Use the same URL as preview URL if not specified
+                    image_data["preview_url"] = image.get("preview_url", image["url"])
+                    images.append(image_data)
 
-        log.info("Extracted image URLs", count=len(image_urls))
-        return image_urls
+        log.info("Extracted image data", count=len(images))
+        return [img["url"] for img in images]  # For backward compatibility, return just the URLs
 
     @staticmethod
     async def on_queue_update(update: Dict[str, Any]):
