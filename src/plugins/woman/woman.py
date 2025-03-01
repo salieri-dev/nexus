@@ -160,7 +160,7 @@ async def get_chat_members(client: Client, chat_id: int) -> List[ChatMember]:
         return []
 
 
-@command_handler(commands=["altgirls"], description="Отправляет фото альтушек и описание того что они сделают с тобой", group="NSFW")
+@command_handler(commands=["altgirls"], description="Фото альтушек (если в группе ещё расскажет что каждая сделает с кем)", group="NSFW")
 @Client.on_message(filters.command(["altgirls"]) & ~filters.forwarded, group=2)
 @requires_setting("nsfw")
 @rate_limit(
