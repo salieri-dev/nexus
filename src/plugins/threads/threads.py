@@ -120,13 +120,13 @@ async def handle_thread_generation(message: Message, command: str, system_prompt
 
         except Exception as e:
             log.error(f"Failed to generate {command}: {e}")
-            await message.reply(f"Произошла ошибка при генерации {command}а" if prompt_language == "ru" else f"An error occurred while generating {command}", quote=True)
+            await message.reply("Произошла ошибка при генерации! Попробуйте снова, такое бывает когда LLM отправляет неправильный формат истории.", quote=True)
             if reply_msg:
                 await reply_msg.delete()
 
     except Exception as e:
         log.error(f"Database error in {command} command", error=str(e))
-        await message.reply("Произошла ошибка при работе с базой данных" if prompt_language == "ru" else "A database error occurred", quote=True)
+        await message.reply("Произошла ошибка на нашей стороне! Напишите пожалуйста @not_salieri, если ошибка происходит вновь.", quote=True)
 
 
 @Client.on_message(filters.command(["bugurt"]), group=1)
