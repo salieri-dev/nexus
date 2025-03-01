@@ -19,8 +19,8 @@ CONFIRM_DELETE_CALLBACK = f"{GDPR_CALLBACK_PREFIX}confirm_delete"
 CANCEL_DELETE_CALLBACK = f"{GDPR_CALLBACK_PREFIX}cancel_delete"
 
 
-@Client.on_message(filters.command("gdpr") & filters.private, group=1)
-@command_handler(commands=["gdpr"], description="Удалить все ваши сообщения из базы данных (GDPR)", group="Утилиты")
+@Client.on_message(filters.command("gdpr"), group=1)
+@command_handler(commands=["gdpr"], description="Удалить все ваши сообщения из базы данных", group="Утилиты")
 async def gdpr_command(client: Client, message: Message):
     """
     Handle the /gdpr command to initiate the GDPR data deletion process.
