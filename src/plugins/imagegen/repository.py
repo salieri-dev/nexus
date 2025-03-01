@@ -33,7 +33,22 @@ class ImagegenRepository:
             if not config:
                 config = DEFAULT_CONFIG.copy()
                 await ImagegenRepository.update_imagegen_config(chat_id, config)
+            else:
+                # Ensure all default keys exist in the config
+                for key, value in DEFAULT_CONFIG.items():
+                    if key not in config:
+                        config[key] = value
+                
+                # Ensure loras is a list
+                if "loras" in config and not isinstance(config["loras"], list):
+                    config["loras"] = []
+                elif "loras" not in config:
+                    config["loras"] = []
+                
+                # Update the config to ensure it's complete
+                await ImagegenRepository.update_imagegen_config(chat_id, config)
 
+            log.info("Retrieved imagegen config", chat_id=chat_id, config=config)
             return config
         except Exception as e:
             log.error("Error getting imagegen config", error=str(e), chat_id=chat_id)

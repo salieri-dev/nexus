@@ -130,16 +130,20 @@ class ImagegenService:
                 - List of trigger words to add to the prompt
         """
         if not lora_ids:
+            log.info("No loras to prepare, returning empty lists")
             return [], []
 
+        log.info("Preparing loras", lora_ids=lora_ids)
         repo = ImagegenService.get_model_repository()
 
         loras = []
         trigger_words = []
 
         for lora_id in lora_ids:
+            log.info(f"Getting lora data for ID: {lora_id}")
             lora_data = await repo.get_lora_by_id(lora_id)
             if lora_data:
+                log.info(f"Found lora data: {lora_data}")
                 # Add lora configuration
                 lora_config = {
                     "path": lora_data["url"],  # The API expects 'path' not 'model_name'
@@ -151,34 +155,43 @@ class ImagegenService:
                     lora_config["preview_url"] = lora_data["preview_url"]
                     
                 loras.append(lora_config)
+                log.info(f"Added lora config: {lora_config}")
 
                 # Collect trigger words if any
                 if lora_data.get("trigger_words"):
                     trigger_words.append(lora_data["trigger_words"])
+                    log.info(f"Added trigger words: {lora_data['trigger_words']}")
+            else:
+                log.warning(f"Lora with ID {lora_id} not found in database")
 
+        log.info(f"Prepared {len(loras)} loras with {len(trigger_words)} trigger words")
         return loras, trigger_words
 
     @staticmethod
-    async def _prepare_generation_payload(chat_id: int, prompt: str) -> Dict[str, Any]:
+    async def _prepare_generation_payload(user_id: int, prompt: str) -> Dict[str, Any]:
         """
         Prepare the payload for image generation.
 
         Args:
-            chat_id: The chat ID to get configuration for
+            user_id: The user ID to get configuration for
             prompt: The prompt for image generation
 
         Returns:
             Dictionary with the payload for the API request
         """
         # Get user configuration
-        config = await ImagegenRepository.get_imagegen_config(chat_id)
+        config = await ImagegenRepository.get_imagegen_config(user_id)
+        
+        log.info("Preparing generation payload", user_id=user_id, config=config)
 
         # Get model URL from ID
         model_id = config.get("model", DEFAULT_CONFIG["model"])
         model_url = await ImagegenService._get_model_url(model_id)
 
         # Prepare loras and get trigger words
-        loras, trigger_words = await ImagegenService._prepare_loras(config.get("loras", []))
+        lora_ids = config.get("loras", [])
+        log.info("Using loras", user_id=user_id, lora_ids=lora_ids)
+        loras, trigger_words = await ImagegenService._prepare_loras(lora_ids)
 
         # Add trigger words to the prompt if any
         enhanced_prompt = await ImagegenService._enhance_prompt_with_trigger_words(prompt, trigger_words)
@@ -240,12 +253,12 @@ class ImagegenService:
         log.info("Queue update", position=update.get("position"), status=update.get("status"))
 
     @staticmethod
-    async def generate_images(chat_id: int, prompt: str) -> List[str]:
+    async def generate_images(user_id: int, prompt: str) -> List[str]:
         """
         Generate images based on the prompt and user configuration.
 
         Args:
-            chat_id: The chat ID to get configuration for
+            user_id: The user ID to get configuration for
             prompt: The prompt for image generation
 
         Returns:
@@ -256,9 +269,9 @@ class ImagegenService:
         """
         try:
             # Prepare payload
-            payload = await ImagegenService._prepare_generation_payload(chat_id, prompt)
+            payload = await ImagegenService._prepare_generation_payload(user_id, prompt)
 
-            log.info("Generating images", chat_id=chat_id, prompt=prompt)
+            log.info("Generating images", user_id=user_id, prompt=prompt)
 
             # Get FalAI client
             falai = FalAI()
@@ -270,16 +283,16 @@ class ImagegenService:
             return await ImagegenService._extract_image_urls(handler)
 
         except Exception as e:
-            log.error("Error generating images", error=str(e), chat_id=chat_id, prompt=prompt)
+            log.error("Error generating images", error=str(e), user_id=user_id, prompt=prompt)
             raise
 
     @staticmethod
-    async def generate_images_with_progress(chat_id: int, prompt: str) -> AsyncGenerator[Dict[str, Any], None]:
+    async def generate_images_with_progress(user_id: int, prompt: str) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Generate images with progress updates.
 
         Args:
-            chat_id: The chat ID to get configuration for
+            user_id: The user ID to get configuration for
             prompt: The prompt for image generation
 
         Yields:
@@ -287,9 +300,9 @@ class ImagegenService:
         """
         try:
             # Prepare payload
-            payload = await ImagegenService._prepare_generation_payload(chat_id, prompt)
+            payload = await ImagegenService._prepare_generation_payload(user_id, prompt)
 
-            log.info("Generating images with progress", chat_id=chat_id, prompt=prompt)
+            log.info("Generating images with progress", user_id=user_id, prompt=prompt)
 
             # Get FalAI client
             falai = FalAI()
@@ -299,7 +312,7 @@ class ImagegenService:
                 yield event
 
         except Exception as e:
-            log.error("Error generating images with progress", error=str(e), chat_id=chat_id, prompt=prompt)
+            log.error("Error generating images with progress", error=str(e), user_id=user_id, prompt=prompt)
             yield {"error": str(e)}
 
     @staticmethod
