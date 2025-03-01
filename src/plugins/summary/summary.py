@@ -208,4 +208,4 @@ async def generate_summary_for_date(client: Client, message: Message, date: date
         await init_msg.edit_text(f"📊 Недостаточно сообщений для генерации сводки за {date_description}. Необходимо минимум 60 сообщений.")
     except Exception as e:
         log.error(f"Error generating summary: {e}")
-        await init_msg.edit_text(f"❌ Произошла ошибка при генерации сводки: {str(e)}")
+        await init_msg.edit_text("❌ Произошла ошибка при генерации сводки. Пожалуйста, попробуйте позже.")

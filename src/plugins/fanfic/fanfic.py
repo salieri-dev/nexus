@@ -100,7 +100,7 @@ async def fanfic_handler(client: Client, message: Message):
 
     except Exception as e:
         log.error(f"Error generating or sending image: {str(e)}")
-        await message.reply(f"Произошла ошибка при генерации изображения: {str(e)}", quote=True)
+        await message.reply("Произошла ошибка при генерации изображения. Пожалуйста, попробуйте позже.", quote=True)
 
         # Send text content if image generation failed
         if len(formatted_response) > MAX_MESSAGE_LENGTH:

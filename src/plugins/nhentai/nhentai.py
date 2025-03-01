@@ -60,7 +60,7 @@ async def nhentai_handler(client: Client, message: Message):
         except Exception as e:
             log.exception("A detailed exception occurred in get_random: %s", str(e))
             await notification.delete()
-            await message.reply(f"An error occurred while processing your request: {e}", quote=True)
+            await message.reply("Произошла ошибка при обработке запроса. Пожалуйста, попробуйте позже.", quote=True)
             return
     else:
         query = " ".join(message.command[1:])
@@ -119,7 +119,7 @@ async def send_search_results(client: Client, message, query: str, page: int):
 
     except Exception as e:
         log.exception(f"An error occurred while searching: {str(e)}")
-        error_message = f"An error occurred while searching: {str(e)}"
+        error_message = "Произошла ошибка при поиске. Пожалуйста, попробуйте позже."
         if isinstance(message, Message):
             await message.reply(error_message, quote=True)
         else:  # It's a CallbackQuery
@@ -157,7 +157,7 @@ async def nhentai_callback_handler(client: Client, callback_query: CallbackQuery
     except Exception as e:
         log.exception(f"An error occurred while processing nhentai callback: {str(e)}")
         try:
-            await callback_query.answer(f"An error occurred: {str(e)}", show_alert=True)
+            await callback_query.answer("Произошла ошибка. Пожалуйста, попробуйте позже.", show_alert=True)
         except QueryIdInvalid:
             log.warning("Callback query expired. Unable to show error message.")
         return
@@ -198,7 +198,7 @@ async def nhentai_url_handler(client: Client, message: Message):
 
     except Exception as e:
         log.exception(f"An error occurred while processing nhentai URL: {str(e)}")
-        await message.reply(f"An error occurred while processing the nhentai URL: {str(e)}", quote=True)
+        await message.reply("Произошла ошибка при обработке URL. Пожалуйста, попробуйте позже.", quote=True)
         return
 
 
@@ -227,7 +227,7 @@ async def nhentai_page_callback_handler(client: Client, callback_query: Callback
     except Exception as e:
         log.exception(f"Error in page callback handler: {str(e)}")
         try:
-            await callback_query.answer(f"Error: {str(e)}", show_alert=True)
+            await callback_query.answer("Произошла ошибка при переключении страницы. Пожалуйста, попробуйте позже.", show_alert=True)
         except QueryIdInvalid:
             log.warning("Callback query expired. Unable to show error message.")
         return
