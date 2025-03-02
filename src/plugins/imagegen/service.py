@@ -1,13 +1,15 @@
 """Service for image generation using fal-ai."""
 
-from typing import Dict, Any, List, Tuple, AsyncGenerator
+from typing import Dict, Any, List, Tuple, AsyncGenerator, Optional, Union
+import asyncio
 
 from pyrogram.types import InputMediaPhoto
 from structlog import get_logger
 
 from src.services.falai import FalAI
 from .constants import DEFAULT_CONFIG, AVAILABLE_SCHEDULERS
-from .repository import ImagegenRepository, ImagegenModelRepository, ImagegenRequestRepository
+from .repository import ImagegenRepository, ImagegenModelRepository
+from src.database.repository.requests_repository import RequestRepository
 
 log = get_logger(__name__)
 
@@ -15,28 +17,73 @@ log = get_logger(__name__)
 class ImagegenService:
     """Service for generating images using fal-ai."""
 
-    @staticmethod
-    def get_repository():
-        """Get imagegen repository instance"""
-        return ImagegenRepository()
+    # Repository instances cache
+    _repositories = {}
 
     @staticmethod
-    def get_model_repository():
-        """Get model repository instance"""
-        return ImagegenModelRepository()
+    def get_repository(repo_type: str = "imagegen") -> Union[ImagegenRepository, ImagegenModelRepository, RequestRepository]:
+        """
+        Get repository instance by type.
         
-    @staticmethod
-    def get_request_repository():
-        """Get request repository instance"""
-        return ImagegenRequestRepository()
+        Args:
+            repo_type: Type of repository to get ("imagegen", "model", or "request")
+            
+        Returns:
+            Repository instance
+        """
+        if repo_type not in ImagegenService._repositories:
+            if repo_type == "imagegen":
+                ImagegenService._repositories[repo_type] = ImagegenRepository()
+            elif repo_type == "model":
+                ImagegenService._repositories[repo_type] = ImagegenModelRepository()
+            elif repo_type == "request":
+                ImagegenService._repositories[repo_type] = RequestRepository()
+            else:
+                raise ValueError(f"Unknown repository type: {repo_type}")
+                
+        return ImagegenService._repositories[repo_type]
 
     @staticmethod
     async def initialize():
         """Initialize the service by initializing the repositories."""
-        model_repo = ImagegenService.get_model_repository()
-        request_repo = ImagegenService.get_request_repository()
-        await model_repo.initialize()
-        await request_repo.initialize()
+        # Initialize all repositories in parallel
+        model_repo = ImagegenService.get_repository("model")
+        request_repo = ImagegenService.get_repository("request")
+        
+        await asyncio.gather(
+            model_repo.initialize(),
+            request_repo.initialize()
+        )
+
+    @staticmethod
+    async def _get_model_data(model_id: str, field: str = None) -> Union[Dict[str, Any], str]:
+        """
+        Get model data or a specific field from model ID.
+
+        Args:
+            model_id: The model ID to look up
+            field: Optional specific field to return (e.g., "url", "preview_url")
+
+        Returns:
+            The model data dictionary or specific field value
+
+        Raises:
+            ValueError: If the model is not found
+        """
+        repo = ImagegenService.get_repository("model")
+        model_data = await repo.get_model_by_id(model_id)
+
+        if not model_data:
+            log.error("Model not found", model_id=model_id)
+            raise ValueError(f"Model not found: {model_id}")
+
+        if field:
+            if field not in model_data:
+                log.error(f"Field {field} not found in model data", model_id=model_id)
+                return "" if field == "preview_url" else None
+            return model_data[field]
+            
+        return model_data
 
     @staticmethod
     async def _get_model_url(model_id: str) -> str:
@@ -50,16 +97,13 @@ class ImagegenService:
             The model URL
 
         Raises:
-            ValueError: If the model is not found
+            ValueError: If the model is not found or URL is missing
         """
-        repo = ImagegenService.get_model_repository()
-        model_data = await repo.get_model_by_id(model_id)
-
-        if not model_data or not model_data.get("url"):
-            log.error("Model not found", model_id=model_id)
-            raise ValueError(f"Model not found: {model_id}")
-
-        return model_data["url"]
+        url = await ImagegenService._get_model_data(model_id, "url")
+        if not url:
+            log.error("Model URL not found", model_id=model_id)
+            raise ValueError(f"Model URL not found: {model_id}")
+        return url
     
     @staticmethod
     async def _get_model_preview_url(model_id: str) -> str:
@@ -75,14 +119,7 @@ class ImagegenService:
         Raises:
             ValueError: If the model is not found
         """
-        repo = ImagegenService.get_model_repository()
-        model_data = await repo.get_model_by_id(model_id)
-
-        if not model_data:
-            log.error("Model not found", model_id=model_id)
-            raise ValueError(f"Model not found: {model_id}")
-
-        return model_data.get("preview_url", "")
+        return await ImagegenService._get_model_data(model_id, "preview_url") or ""
 
     @staticmethod
     async def _get_scheduler_display_name(scheduler_id: str) -> str:
@@ -141,7 +178,7 @@ class ImagegenService:
             return [], []
 
         log.info("Preparing loras", lora_ids=lora_ids)
-        repo = ImagegenService.get_model_repository()
+        repo = ImagegenService.get_repository("model")
 
         loras = []
         trigger_words = []
@@ -228,28 +265,88 @@ class ImagegenService:
         return payload
 
     @staticmethod
-    async def _extract_image_urls(handler: Dict[str, Any]) -> List[Dict[str, str]]:
+    async def _extract_image_urls(handler: Dict[str, Any]) -> List[str]:
         """
-        Extract image URLs and preview URLs from the API response.
+        Extract image URLs from the API response.
 
         Args:
             handler: The API response handler
 
         Returns:
-            List of dictionaries containing image URLs and preview URLs
+            List of image URLs
         """
         images = []
         if "images" in handler:
             for image in handler["images"]:
-                image_data = {}
                 if "url" in image:
-                    image_data["url"] = image["url"]
-                    # Use the same URL as preview URL if not specified
-                    image_data["preview_url"] = image.get("preview_url", image["url"])
-                    images.append(image_data)
+                    images.append(image["url"])
 
-        log.info("Extracted image data", count=len(images))
-        return [img["url"] for img in images]  # For backward compatibility, return just the URLs
+        log.info("Extracted image URLs", count=len(images))
+        return images
+
+    @staticmethod
+    async def _create_request_record(
+        req_type: str,
+        user_id: int,
+        chat_id: int,
+        prompt: str,
+        config: Dict[str, Any],
+        payload: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Create a request record in the database.
+        
+        Args:
+            req_type: Type of request
+            user_id: User ID
+            chat_id: Chat ID
+            prompt: Prompt text
+            config: User configuration
+            payload: API payload
+            
+        Returns:
+            Created request document or None if creation failed
+        """
+        request_repo = ImagegenService.get_repository("request")
+        return await request_repo.create_request(
+            req_type=req_type,
+            user_id=user_id,
+            chat_id=chat_id,
+            prompt=prompt,
+            config=config,
+            payload=payload,
+            status="processing"
+        )
+        
+    @staticmethod
+    async def _update_request_record(
+        request_doc: Dict[str, Any],
+        image_urls: List[str] = None,
+        error: str = None,
+        status: str = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update a request record in the database.
+        
+        Args:
+            request_doc: Request document to update
+            image_urls: Image URLs to store
+            error: Error message if any
+            status: New status
+            
+        Returns:
+            Updated request document or None if update failed
+        """
+        if not request_doc:
+            return None
+            
+        request_repo = ImagegenService.get_repository("request")
+        return await request_repo.update_request(
+            str(request_doc["_id"]),
+            image_urls=image_urls,
+            error=error,
+            status=status
+        )
 
     @staticmethod
     async def on_queue_update(update: Dict[str, Any]):
@@ -260,6 +357,161 @@ class ImagegenService:
             update: The queue update information
         """
         log.info("Queue update", position=update.get("position"), status=update.get("status"))
+
+    @staticmethod
+    async def _generate_images_sync(
+        user_id: int,
+        prompt: str,
+        chat_id: int = None
+    ) -> List[str]:
+        """
+        Internal method for generating images synchronously.
+        
+        Args:
+            user_id: The user ID to get configuration for
+            prompt: The prompt for image generation
+            chat_id: The chat ID where the request was made (defaults to user_id if not provided)
+            
+        Returns:
+            List of image URLs
+            
+        Raises:
+            Exception: If image generation fails
+        """
+        # If chat_id is not provided, use user_id as chat_id
+        if chat_id is None:
+            chat_id = user_id
+            
+        # Get user configuration
+        config = await ImagegenRepository.get_imagegen_config(user_id)
+        
+        # Create request record with initial status
+        request_doc = None
+        image_urls = []
+        
+        try:
+            # Prepare payload
+            payload = await ImagegenService._prepare_generation_payload(user_id, prompt)
+
+            log.info("Generating images", user_id=user_id, prompt=prompt)
+            
+            # Create a new request record with processing status
+            request_doc = await ImagegenService._create_request_record(
+                req_type="imagegen",
+                user_id=user_id,
+                chat_id=chat_id,
+                prompt=prompt,
+                config=config,
+                payload=payload
+            )
+
+            # Get FalAI client
+            falai = FalAI()
+
+            # Submit the job to fal-ai synchronously
+            handler = await falai.generate_image_sync("fal-ai/lora", payload)
+            
+            # Extract image URLs from the result
+            image_urls = await ImagegenService._extract_image_urls(handler)
+            
+            # Update the existing request with success status and image URLs
+            if request_doc and image_urls:
+                await ImagegenService._update_request_record(
+                    request_doc,
+                    image_urls=image_urls,
+                    status="success"
+                )
+                
+            return image_urls
+
+        except Exception as e:
+            log.error("Error generating images", error=str(e), user_id=user_id, prompt=prompt)
+            
+            # Update the existing request with failure status and error message
+            if request_doc:
+                await ImagegenService._update_request_record(
+                    request_doc,
+                    error=str(e),
+                    status="failure"
+                )
+                
+            raise
+            
+    @staticmethod
+    async def _generate_images_with_progress_internal(
+        user_id: int,
+        prompt: str,
+        chat_id: int = None
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Internal method for generating images with progress updates.
+        
+        Args:
+            user_id: The user ID to get configuration for
+            prompt: The prompt for image generation
+            chat_id: The chat ID where the request was made (defaults to user_id if not provided)
+            
+        Yields:
+            Dictionary with event information during generation
+        """
+        # If chat_id is not provided, use user_id as chat_id
+        if chat_id is None:
+            chat_id = user_id
+            
+        # Get user configuration
+        config = await ImagegenRepository.get_imagegen_config(user_id)
+        
+        # Create request record with initial status
+        request_doc = None
+        image_urls = []
+        
+        try:
+            # Prepare payload
+            payload = await ImagegenService._prepare_generation_payload(user_id, prompt)
+
+            log.info("Generating images with progress", user_id=user_id, prompt=prompt)
+            
+            # Create a new request record with processing status
+            request_doc = await ImagegenService._create_request_record(
+                req_type="imagegen",
+                user_id=user_id,
+                chat_id=chat_id,
+                prompt=prompt,
+                config=config,
+                payload=payload
+            )
+
+            # Get FalAI client
+            falai = FalAI()
+
+            # Submit the job to fal-ai and yield progress events
+            async for event in falai.generate_image("fal-ai/lora", payload):
+                # Extract image URLs if available
+                if "images" in event and event.get("images"):
+                    image_urls = [img.get("url") for img in event.get("images") if img.get("url")]
+                
+                yield event
+
+            # Update the existing request with success status and image URLs
+            if request_doc and image_urls:
+                await ImagegenService._update_request_record(
+                    request_doc,
+                    image_urls=image_urls,
+                    status="success"
+                )
+
+        except Exception as e:
+            log.error("Error generating images with progress", error=str(e), user_id=user_id, prompt=prompt)
+            
+            # Update the existing request with failure status and error message
+            if request_doc:
+                await ImagegenService._update_request_record(
+                    request_doc,
+                    error=str(e),
+                    status="failure"
+                )
+                
+            yield {"error": str(e)}
 
     @staticmethod
     async def generate_images(user_id: int, prompt: str, chat_id: int = None) -> List[str]:
@@ -277,66 +529,11 @@ class ImagegenService:
         Raises:
             Exception: If image generation fails
         """
-        # If chat_id is not provided, use user_id as chat_id
-        if chat_id is None:
-            chat_id = user_id
-            
-        # Get user configuration
-        config = await ImagegenRepository.get_imagegen_config(user_id)
-        
-        # Get request repository
-        request_repo = ImagegenService.get_request_repository()
-        
-        # Create request record with initial status
-        request_doc = None
-        
-        try:
-            # Prepare payload
-            payload = await ImagegenService._prepare_generation_payload(user_id, prompt)
-
-            log.info("Generating images", user_id=user_id, prompt=prompt)
-            
-            # Create a new request record with processing status
-            request_doc = await request_repo.create_request(
-                user_id=user_id,
-                chat_id=chat_id,
-                prompt=prompt,
-                config=config,
-                payload=payload,
-                status="processing"
-            )
-
-            # Get FalAI client
-            falai = FalAI()
-
-            # Submit the job to fal-ai
-            handler = await falai.generate_image_sync("fal-ai/lora", payload)
-
-            # Extract image URLs from the result
-            image_urls = await ImagegenService._extract_image_urls(handler)
-            
-            # Update the existing request with success status and image URLs
-            if request_doc:
-                await request_repo.update_request(
-                    str(request_doc["_id"]),
-                    image_urls=image_urls,
-                    status="success"
-                )
-            
-            return image_urls
-
-        except Exception as e:
-            log.error("Error generating images", error=str(e), user_id=user_id, prompt=prompt)
-            
-            # Update the existing request with failure status and error message
-            if request_doc:
-                await request_repo.update_request(
-                    str(request_doc["_id"]),
-                    error=str(e),
-                    status="failure"
-                )
-                
-            raise
+        return await ImagegenService._generate_images_sync(
+            user_id=user_id,
+            prompt=prompt,
+            chat_id=chat_id
+        )
 
     @staticmethod
     async def generate_images_with_progress(user_id: int, prompt: str, chat_id: int = None) -> AsyncGenerator[Dict[str, Any], None]:
@@ -351,71 +548,12 @@ class ImagegenService:
         Yields:
             Dictionary with event information during generation
         """
-        # If chat_id is not provided, use user_id as chat_id
-        if chat_id is None:
-            chat_id = user_id
-            
-        # Get user configuration
-        config = await ImagegenRepository.get_imagegen_config(user_id)
-        
-        # Get request repository
-        request_repo = ImagegenService.get_request_repository()
-        
-        # Create request record with initial status
-        request_doc = None
-        image_urls = []
-        
-        try:
-            # Prepare payload
-            payload = await ImagegenService._prepare_generation_payload(user_id, prompt)
-
-            log.info("Generating images with progress", user_id=user_id, prompt=prompt)
-            
-            # Create a new request record with processing status
-            request_doc = await request_repo.create_request(
-                user_id=user_id,
-                chat_id=chat_id,
-                prompt=prompt,
-                config=config,
-                payload=payload,
-                status="processing"
-            )
-
-            # Get FalAI client
-            falai = FalAI()
-
-            # Submit the job to fal-ai and yield progress events
-            final_event = None
-            async for event in falai.generate_image("fal-ai/lora", payload):
-                # Store the final event which should contain the image URLs
-                if "images" in event:
-                    final_event = event
-                    # Extract image URLs if available
-                    if event.get("images"):
-                        image_urls = [img.get("url") for img in event.get("images") if img.get("url")]
-                
-                yield event
-
-            # Update the existing request with success status and image URLs if we have a final event
-            if request_doc and image_urls:
-                await request_repo.update_request(
-                    str(request_doc["_id"]),
-                    image_urls=image_urls,
-                    status="success"
-                )
-
-        except Exception as e:
-            log.error("Error generating images with progress", error=str(e), user_id=user_id, prompt=prompt)
-            
-            # Update the existing request with failure status and error message
-            if request_doc:
-                await request_repo.update_request(
-                    str(request_doc["_id"]),
-                    error=str(e),
-                    status="failure"
-                )
-                
-            yield {"error": str(e)}
+        async for event in ImagegenService._generate_images_with_progress_internal(
+            user_id=user_id,
+            prompt=prompt,
+            chat_id=chat_id
+        ):
+            yield event
 
     @staticmethod
     async def create_media_group(image_urls: List[str], caption: str = None) -> List[InputMediaPhoto]:
