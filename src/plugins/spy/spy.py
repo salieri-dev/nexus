@@ -7,7 +7,6 @@ from structlog import get_logger
 
 from src.database.client import DatabaseClient
 from src.database.repository.message_repository import MessageRepository
-from src.database.repository.peer_config_repository import PeerConfigRepository
 
 # Get the shared logger instance
 log = get_logger(__name__)
@@ -53,10 +52,6 @@ async def message(client: Client, message):
 
         # Initialize repositories
         message_repo = MessageRepository(db_client.client)
-        config_repo = PeerConfigRepository(db_client.client)
-
-        # Get or create peer config
-        peer_config = await config_repo.get_peer_config(message.chat.id)
 
         # Prepare message data with created_at
         message_data = serialize(message)
@@ -70,10 +65,7 @@ async def message(client: Client, message):
         msg_content = get_message_content(message)
         chat_title = "DM" if message.chat.type == ChatType.PRIVATE else message.chat.title
 
-        # Include peer config status in logging
-        config_status = {k: v for k, v in peer_config.items() if k != "chat_id"}
-
-        log.info(f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id if message.from_user else 'N/A'}]: {msg_content}", message_id=message.id, chat_id=message.chat.id, message_type=type(message).__name__, peer_config=config_status)
+        log.info(f"[{chat_title}] [{message.chat.id}] [{user_identifier}] [{message.from_user.id if message.from_user else 'N/A'}]: {msg_content}", message_id=message.id, chat_id=message.chat.id, message_type=type(message).__name__)
 
     except Exception as e:
         log.error("Error logging message", error=str(e), message_id=getattr(message, "id", None))
