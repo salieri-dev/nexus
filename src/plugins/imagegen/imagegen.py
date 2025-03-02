@@ -138,7 +138,7 @@ async def imagegen_command(client: Client, message: Message):
     
     if IMAGEGEN_DISABLED:
         await message.reply("❌ **Генерация изображений отключена. Идут технические работы**", parse_mode=ParseMode.MARKDOWN)
-    
+        return
     try:
         # Check if there's a prompt after the command
         if len(message.command) > 1:
