@@ -132,7 +132,7 @@ async def create_image_size_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 @Client.on_message(filters.command(["imagegen"]), group=1)
-@command_handler(commands=["imagegen"], description="Генерация изображений и настройки", arguments="[необяз. промпт]", group="Нейронки")
+@command_handler(commands=["imagegen"], description="Генерация изображений. Если нет промпта, выдаст настройки", arguments="[необяз. промпт]", group="Нейронки")
 async def imagegen_command(client: Client, message: Message):
     """Handler for /imagegen command."""
     try:
