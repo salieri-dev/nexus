@@ -26,6 +26,9 @@ class PeerConfigModel(BaseModel):
 
     # Only NSFW is a core parameter
     nsfw_enabled: bool = Field(default=False, description="Разрешен ли 18+ контент?", display_name="Разрешен ли 18+ контент?")
+    
+    # VIP status - not exposed via /config
+    is_vip: bool = Field(default=False, description="VIP статус", display_name="VIP статус")
 
     # Class variables to store parameter metadata and mappings
     param_registry: ClassVar[Dict[str, ConfigParam]] = {}
@@ -240,6 +243,45 @@ def get_param_info(param_name: str) -> Optional[ConfigParam]:
         return PeerConfigModel.param_registry.get(actual_param)
 
     return None
+
+
+async def enable_vip(chat_id: int) -> Dict:
+    """
+    Enable VIP status for a chat.
+
+    Args:
+        chat_id: The chat ID to enable VIP for
+
+    Returns:
+        The updated configuration
+    """
+    return await update_chat_setting(chat_id, "is_vip", True)
+
+
+async def disable_vip(chat_id: int) -> Dict:
+    """
+    Disable VIP status for a chat.
+
+    Args:
+        chat_id: The chat ID to disable VIP for
+
+    Returns:
+        The updated configuration
+    """
+    return await update_chat_setting(chat_id, "is_vip", False)
+
+
+async def is_vip(chat_id: int) -> bool:
+    """
+    Check if a chat has VIP status.
+
+    Args:
+        chat_id: The chat ID to check
+
+    Returns:
+        True if the chat has VIP status, False otherwise
+    """
+    return await get_chat_setting(chat_id, "is_vip", False)
 
 
 # Initialize core parameters

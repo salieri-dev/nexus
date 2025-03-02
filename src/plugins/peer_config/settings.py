@@ -35,7 +35,8 @@ async def get_chat_setting(chat_id: int, setting_key: str, default=False) -> any
 
 def format_settings(config: dict) -> str:
     """Format peer_config for display with simplified organization."""
-    display_config = {k: v for k, v in config.items() if k not in ["chat_id", "_id"]}
+    # Exclude internal fields and is_vip from display
+    display_config = {k: v for k, v in config.items() if k not in ["chat_id", "_id", "is_vip"]}
     param_registry = get_param_registry()
 
     sorted_settings = sorted(display_config.items(), key=lambda item: (0 if param_registry.get(item[0], {}).param_type == "core" else 1, item[0]))
@@ -141,6 +142,10 @@ async def handle_setting_change(chat_id: int, action: str, setting: str) -> str:
         param_info = get_param_info(param_name)
         if not param_info:
             return "❌ Неверная настройка. Используйте <code>/config</code> для просмотра доступных настроек."
+            
+        # Prevent changing VIP status via /config
+        if param_name == "is_vip":
+            return "❌ Эта настройка не может быть изменена через команду /config."
 
         # Handle boolean settings (enable/disable)
         if is_bool_command:

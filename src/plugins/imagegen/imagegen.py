@@ -7,6 +7,7 @@ from pyrogram.enums import ChatType, ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
 from structlog import get_logger
 
+from src.config.framework import is_vip
 from src.plugins.help import command_handler
 from src.database.client import DatabaseClient
 from src.database.repository.ratelimit_repository import RateLimitRepository
@@ -140,10 +141,11 @@ async def imagegen_command(client: Client, message: Message):
             # Apply rate limiting only for image generation
             # Check rate limit manually
             user_id = message.from_user.id
+            isvip = await is_vip(user_id)
+            log.info("VIP Status", user_id=user_id, isvip=isvip)
             
-            # Developer bypass - allow owner to bypass rate limits
-            if is_developer(user_id):
-                log.info("Developer bypassed rate limit for imagegen", user_id=user_id)
+            if isvip:
+                log.info("VIP bypassed rate limit for imagegen", user_id=user_id)
             else:
                 db_client = DatabaseClient.get_instance()
                 rate_limit_repo = RateLimitRepository(db_client)
