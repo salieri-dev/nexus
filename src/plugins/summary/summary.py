@@ -52,7 +52,7 @@ async def summarize_yesterday_handler(client: Client, message: Message):
     from src.config.framework import get_chat_setting
 
     if not await get_chat_setting(message.chat.id, "summary_enabled", default=False):
-        await message.reply_text(text="❌ Функция суммаризации не включена для этого чата. Используйте /summary для включения.", quote=True)
+        await message.reply_text(text="❌ Функция суммаризации не включена для этого чата. Используйте `/config enable summary` для включения.", quote=True)
         return
 
     # Get yesterday's date in Moscow timezone
@@ -76,7 +76,7 @@ async def summarize_today_handler(client: Client, message: Message):
     from src.config.framework import get_chat_setting
 
     if not await get_chat_setting(message.chat.id, "summary_enabled", default=False):
-        await message.reply_text(text="❌ Функция суммаризации не включена для этого чата. Используйте /summary для включения.", quote=True)
+        await message.reply_text(text="❌ Функция суммаризации не включена для этого чата. Используйте `/config enable summary` для включения.", quote=True)
         return
 
     # Get today's date in Moscow timezone
@@ -140,7 +140,7 @@ async def summary_history_handler(client: Client, message: Message):
     from src.config.framework import get_chat_setting
 
     if not await get_chat_setting(message.chat.id, "summary_enabled", default=False):
-        await message.reply_text(text="❌ Функция суммаризации не включена для этого чата. Используйте /summary для включения.", quote=True)
+        await message.reply_text(text="❌ Функция суммаризации не включена для этого чата. Используйте `/config enable summary` для включения.", quote=True)
         return
 
     # Get summary repository
