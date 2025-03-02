@@ -178,7 +178,8 @@ async def imagegen_command(client: Client, message: Message):
             log.info("Using user's imagegen config", user_id=user_id, config=user_config)
             
             # Generate images using the user's configuration
-            image_urls = await imagegen_service.generate_images(user_id, prompt)
+            # Pass both user_id and message.chat.id to properly track where the request came from
+            image_urls = await imagegen_service.generate_images(user_id, prompt, message.chat.id)
 
             if not image_urls:
                 await processing_msg.edit_text("❌ **Не удалось сгенерировать изображения.**\n\nПожалуйста, попробуйте другой промпт или настройки.", parse_mode=ParseMode.MARKDOWN)
