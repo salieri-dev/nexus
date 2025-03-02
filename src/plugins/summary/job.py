@@ -121,8 +121,11 @@ class SummaryJob:
     async def _generate_summary(self, chat_log: str) -> Optional[Dict]:
         """Generate a summary of the chat log using OpenRouter API"""
         try:
-            # Use beta.chat.completions.parse with the Pydantic model
-            completion = await self.openrouter.client.beta.chat.completions.parse(
+            # Generate JSON schema from the Pydantic model
+            json_schema = SummarizationResponse.model_json_schema()
+            
+            # Use the standard chat.completions.create with JSON schema
+            completion = await self.openrouter.client.chat.completions.create(
                 messages=[
                     {
                         "role": "system",
@@ -133,13 +136,14 @@ class SummaryJob:
                 model=self.model_name,
                 temperature=0.8,
                 max_tokens=50000,
-                response_format=SummarizationResponse,
+                response_format={"type": "json_object", "schema": json_schema}
             )
 
             log.info("Received summary response", response=completion)
 
-            # The response is already parsed into SummarizationResponse model
-            summary = completion.choices[0].message.parsed
+            # Parse the JSON response back into the Pydantic model
+            response_content = completion.choices[0].message.content
+            summary = SummarizationResponse.model_validate_json(response_content)
 
             log.info("Summary generated successfully", themes_count=len(summary.themes))
 
