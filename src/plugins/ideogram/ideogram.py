@@ -22,7 +22,7 @@ request_repository = RequestRepository()
 
 
 @Client.on_message(filters.command(["ideogram"]), group=1)
-@command_handler(commands=["ideogram"], description="Генерация изображений с помощью Ideogram", group="Нейронки")
+@command_handler(commands=["ideogram"], description="Сгенерировать логотип", arguments="[текст]", group="Нейронки")
 async def ideogram_command(client: Client, message: Message):
     """Handler for /ideogram command."""
     try:
