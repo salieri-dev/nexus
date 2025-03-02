@@ -11,7 +11,7 @@ from src.config.framework import is_vip
 from src.plugins.help import command_handler
 from src.database.client import DatabaseClient
 from src.database.repository.ratelimit_repository import RateLimitRepository
-from .constants import CALLBACK_PREFIX, MODEL_CALLBACK, NEGATIVE_PROMPT_CALLBACK, CFG_SCALE_CALLBACK, LORAS_CALLBACK, SCHEDULER_CALLBACK, IMAGE_SIZE_CALLBACK, BACK_CALLBACK, AVAILABLE_SCHEDULERS, IMAGE_SIZES
+from .constants import CALLBACK_PREFIX, IMAGEGEN_DISABLED, MODEL_CALLBACK, NEGATIVE_PROMPT_CALLBACK, CFG_SCALE_CALLBACK, LORAS_CALLBACK, SCHEDULER_CALLBACK, IMAGE_SIZE_CALLBACK, BACK_CALLBACK, AVAILABLE_SCHEDULERS, IMAGE_SIZES
 from .repository import ImagegenRepository, ImagegenModelRepository
 from .service import ImagegenService
 
@@ -135,6 +135,10 @@ async def create_image_size_keyboard() -> InlineKeyboardMarkup:
 @command_handler(commands=["imagegen"], description="Генерация изображений. Если нет промпта, выдаст настройки", arguments="[необяз. промпт]", group="Нейронки")
 async def imagegen_command(client: Client, message: Message):
     """Handler for /imagegen command."""
+    
+    if IMAGEGEN_DISABLED:
+        await message.reply("❌ **Генерация изображений отключена. Идут технические работы**", parse_mode=ParseMode.MARKDOWN)
+    
     try:
         # Check if there's a prompt after the command
         if len(message.command) > 1:
