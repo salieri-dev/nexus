@@ -1,17 +1,18 @@
 """Image generation command handler."""
 
+import time
 from typing import Dict, Any, List
 
 from pyrogram import Client, filters
 from pyrogram.enums import ChatType, ParseMode
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto, InputMediaDocument
 from structlog import get_logger
 
 from src.config.framework import is_vip
 from src.plugins.help import command_handler
 from src.database.client import DatabaseClient
 from src.database.repository.ratelimit_repository import RateLimitRepository
-from .constants import CALLBACK_PREFIX, IMAGEGEN_DISABLED, MODEL_CALLBACK, NEGATIVE_PROMPT_CALLBACK, CFG_SCALE_CALLBACK, LORAS_CALLBACK, SCHEDULER_CALLBACK, IMAGE_SIZE_CALLBACK, BACK_CALLBACK, AVAILABLE_SCHEDULERS, IMAGE_SIZES
+from .constants import CALLBACK_PREFIX, IMAGEGEN_DISABLED, MODEL_CALLBACK, NEGATIVE_PROMPT_CALLBACK, CFG_SCALE_CALLBACK, LORAS_CALLBACK, IMAGE_SIZE_CALLBACK, BACK_CALLBACK, IMAGE_SIZES
 from .repository import ImagegenRepository, ImagegenModelRepository
 from .service import ImagegenService
 
@@ -48,17 +49,13 @@ async def create_settings_keyboard(config: Dict[str, Any]) -> InlineKeyboardMark
         if model_data and "name" in model_data:
             current_model_name = model_data["name"]
 
-    current_scheduler = next((name for name, value in AVAILABLE_SCHEDULERS.items() if value == config.get("scheduler")), "Не выбрано")
-
-    current_size = IMAGE_SIZES.get(config.get("image_size", "square_hd"), "Не выбрано")
+    current_size = IMAGE_SIZES.get(config.get("image_size", "square"), "Не выбрано")
 
     # Create keyboard
     keyboard = [
         [InlineKeyboardButton(f"🖼 Модель: {current_model_name}", callback_data=f"{MODEL_CALLBACK}list")],
         [InlineKeyboardButton(f"🚫 Негативный промпт", callback_data=NEGATIVE_PROMPT_CALLBACK)],
-        [InlineKeyboardButton(f"⚙️ CFG Scale: {config.get('cfg_scale', 7.0)}", callback_data=CFG_SCALE_CALLBACK)],
-        [InlineKeyboardButton(f"🧩 Loras", callback_data=f"{LORAS_CALLBACK}list")],
-        [InlineKeyboardButton(f"🔄 Scheduler: {current_scheduler}", callback_data=f"{SCHEDULER_CALLBACK}list")],
+        [InlineKeyboardButton(f"🧩 Стили", callback_data=f"{LORAS_CALLBACK}list")],
         [InlineKeyboardButton(f"📏 Размер изображения: {current_size}", callback_data=f"{IMAGE_SIZE_CALLBACK}list")],
     ]
 
@@ -102,21 +99,6 @@ async def create_loras_keyboard(selected_loras: List[str]) -> InlineKeyboardMark
     keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data=BACK_CALLBACK)])
 
     return InlineKeyboardMarkup(keyboard), loras
-
-
-async def create_scheduler_keyboard() -> InlineKeyboardMarkup:
-    """Create keyboard with available schedulers."""
-    keyboard = []
-
-    # Add a button for each scheduler
-    for scheduler_name, scheduler_id in AVAILABLE_SCHEDULERS.items():
-        keyboard.append([InlineKeyboardButton(scheduler_name, callback_data=f"{SCHEDULER_CALLBACK}{scheduler_id}")])
-
-    # Add back button
-    keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data=BACK_CALLBACK)])
-
-    return InlineKeyboardMarkup(keyboard)
-
 
 async def create_image_size_keyboard() -> InlineKeyboardMarkup:
     """Create keyboard with available image sizes."""
@@ -173,7 +155,8 @@ async def imagegen_command(client: Client, message: Message):
 
             # Send a processing message
             processing_msg = await message.reply("🔄 **Генерация изображений...**\n\nЭто может занять некоторое время.", parse_mode=ParseMode.MARKDOWN)
-
+            # Record start time
+            start_time = time.time()
             # Initialize the service
             await imagegen_service.initialize()
 
@@ -186,7 +169,11 @@ async def imagegen_command(client: Client, message: Message):
             # Generate images using the user's configuration
             # Pass both user_id and message.chat.id to properly track where the request came from
             image_urls = await imagegen_service.generate_images(user_id, prompt, message.chat.id)
-
+            
+            # Calculate processing time
+            processing_time = time.time() - start_time
+            processing_time_str = f"{processing_time:.1f}"
+            
             if not image_urls:
                 await processing_msg.edit_text("❌ **Не удалось сгенерировать изображения.**\n\nПожалуйста, попробуйте другой промпт или настройки.", parse_mode=ParseMode.MARKDOWN)
                 return
@@ -199,12 +186,8 @@ async def imagegen_command(client: Client, message: Message):
                 if model_data and "name" in model_data:
                     model_name = model_data["name"]
             
-            # Get scheduler information
-            scheduler_id = user_config.get("scheduler", "")
-            scheduler_name = next((name for name, value in AVAILABLE_SCHEDULERS.items() if value == scheduler_id), "Unknown")
-            
             # Get image size
-            image_size = IMAGE_SIZES.get(user_config.get("image_size", "square_hd"), "Unknown")
+            image_size = IMAGE_SIZES.get(user_config.get("image_size", "square"), "Unknown")
             
             # Get LoRA information
             lora_names = []
@@ -228,30 +211,38 @@ async def imagegen_command(client: Client, message: Message):
             
             # Get LoRA information with names
             loras_info = []
-            for lora in payload['loras']:
-                # Use the lora_name directly from the payload if available
-                lora_name = lora.get('lora_name', 'Unknown LoRA')
-                lora_weight = lora.get('weight', 0.7)
+            
+            # Check if lora_url is in the payload (new format)
+            if 'lora_url' in payload:
+                lora_url = payload['lora_url']
+                lora_strength = payload.get('lora_strength', 1.0)
                 
-                # If lora_name is not available, try to get it from the repository
-                if lora_name == 'Unknown LoRA':
-                    lora_id = lora.get('lora_id', '')
-                    if not lora_id:
-                        # Try to extract ID from path as fallback
-                        lora_id = lora.get('path', '').split('/')[-1]
+                # First try to find the LoRA by URL
+                try:
+                    # Get all loras and find the one with matching URL
+                    all_loras = await model_repository.get_all_loras()
+                    matching_lora = next((lora for lora in all_loras if lora.get("url") == lora_url), None)
                     
-                    # Try to get the LoRA data from the repository
-                    try:
+                    if matching_lora and "name" in matching_lora:
+                        lora_name = matching_lora["name"]
+                        log.info(f"Found LoRA by URL: {lora_name}")
+                    else:
+                        # Fallback: Try to extract lora ID from URL
+                        lora_id = lora_url.split('/')[-1].split('?')[0] if lora_url else ''
+                        
+                        # Try to get the LoRA data from the repository by ID
                         lora_data = await model_repository.get_lora_by_id(lora_id)
                         if lora_data and "name" in lora_data:
                             lora_name = lora_data["name"]
                         else:
-                            # Log that we couldn't find the LoRA name
-                            log.warning(f"Could not find LoRA name for ID: {lora_id}")
-                    except Exception as e:
-                        log.error(f"Error getting LoRA data for ID {lora_id}: {str(e)}")
+                            # If still not found, use a default name with the URL
+                            lora_name = "LoRA"
+                            log.warning(f"Could not find LoRA name for URL: {lora_url}")
+                except Exception as e:
+                    lora_name = "LoRA"
+                    log.error(f"Error getting LoRA data for URL {lora_url}: {str(e)}")
                 
-                loras_info.append(f"{lora_name} (weight: {lora_weight})")
+                loras_info.append(f"{lora_name} (strength: {lora_strength})")
                 
             caption = (
                 f"🖼 **Сгенерированные изображения**\n\n"
@@ -259,11 +250,9 @@ async def imagegen_command(client: Client, message: Message):
                 f"**Негативный промпт:** `{payload['negative_prompt']}`\n\n"
                 f"**Модель:** {model_name}\n"
                 f"**LoRAs:** {', '.join(loras_info) if loras_info else 'None'}\n"
-                f"**CFG Scale:** {payload['guidance_scale']}\n"
-                f"**Scheduler:** {payload['scheduler']}\n"
-                f"**Размер:** {IMAGE_SIZES.get(payload['image_size'], payload['image_size'])}\n"
-                f"**Clip Skip:** {payload.get('clip_skip', 'N/A')}\n"
-                f"**Шаги:** {payload.get('num_inference_steps', 'N/A')}\n"
+                f"**Размер:** {payload.get('width', 768)}×{payload.get('height', 768)}\n"
+                f"**Шаги:** {payload.get('steps', 30)}\n"
+                f"**Время генерации:** {processing_time_str} сек.\n"
             )
 
             # Create media group
@@ -271,6 +260,24 @@ async def imagegen_command(client: Client, message: Message):
 
             # Send the media group
             await client.send_media_group(chat_id=message.chat.id, media=media_group, reply_to_message_id=message.id)
+
+            # Now create a document media group for downloading the images
+            document_media_group = []
+            for i, url in enumerate(image_urls):
+                document_media_group.append(
+                    InputMediaDocument(
+                        media=url
+                    )
+                )
+            
+            # Send documents in a separate media group
+            if document_media_group:
+                await client.send_media_group(
+                    chat_id=message.chat.id,
+                    media=document_media_group,
+                    reply_to_message_id=message.id
+                )
+
 
             # Delete the processing message
             await processing_msg.delete()
@@ -291,7 +298,7 @@ async def imagegen_command(client: Client, message: Message):
             await message.reply("⚙️ **Настройки генерации изображений**\n\nИспользуйте `/imagegen [промпт]` для генерации изображений\nили выберите параметр для настройки:", reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
         log.error("Error handling imagegen command", error=str(e))
-        await message.reply(f"❌ Произошла ошибка: {str(e)}")
+        await processing_msg.edit_text("❌ **Произошла ошибка при генерации изображений**", parse_mode=ParseMode.MARKDOWN)
 
 @Client.on_callback_query(filters.regex(f"^{CALLBACK_PREFIX}"))
 async def handle_imagegen_callback(client: Client, callback_query: CallbackQuery):
@@ -437,8 +444,6 @@ async def handle_imagegen_callback(client: Client, callback_query: CallbackQuery
                 for i, lora in enumerate(loras, 1):
                     selection_status = "✅ " if lora["id"] in config.get("loras", []) else ""
                     lora_text = f"**[{i}] {selection_status}{lora['name']}**\n"
-                    if lora.get("trigger_words"):
-                        lora_text += f"Trigger words: `{lora['trigger_words']}`\n"
                     lora_text += f"Default scale: {lora.get('default_scale', 0.7)}\n"
                     if lora.get("description"):
                         desc = lora.get("description", "")
@@ -508,33 +513,6 @@ async def handle_imagegen_callback(client: Client, callback_query: CallbackQuery
                 status_text = "удалена" if not new_loras else "выбрана"
                 await callback_query.edit_message_text(
                     f"⚙️ **Настройки генерации изображений**\n\n✅ Lora {status_text}\n\nВыберите параметр для настройки:", 
-                    reply_markup=keyboard, 
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            return
-
-        # Handle scheduler selection
-        if data.startswith(SCHEDULER_CALLBACK):
-            scheduler_id = data[len(SCHEDULER_CALLBACK):]
-
-            if scheduler_id == "list":
-                # Show scheduler selection keyboard
-                keyboard = await create_scheduler_keyboard()
-                await callback_query.edit_message_text(
-                    "🔄 **Выберите Scheduler:**", 
-                    reply_markup=keyboard, 
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            else:
-                # Update scheduler setting
-                await ImagegenRepository.update_imagegen_setting(chat_id, "scheduler", scheduler_id)
-
-                # Update config and show main settings
-                config = await ImagegenRepository.get_imagegen_config(chat_id)
-                keyboard = await create_settings_keyboard(config)
-
-                await callback_query.edit_message_text(
-                    f"⚙️ **Настройки генерации изображений**\n\n✅ Scheduler успешно изменен\n\nВыберите параметр для настройки:", 
                     reply_markup=keyboard, 
                     parse_mode=ParseMode.MARKDOWN
                 )

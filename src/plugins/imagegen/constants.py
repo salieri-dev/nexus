@@ -1,7 +1,7 @@
 """Constants for the imagegen plugin."""
 
 # Default configuration for imagegen
-DEFAULT_CONFIG = {"model": "checkpoint_827184", "negative_prompt": "bad anatomy, signature, watermark, username, error, missing limbs, error, bad quality,worst quality,worst detail,sketch,censor", "cfg_scale": 5.0, "loras": [], "scheduler": "dpm_2m_sde_karras", "image_size": "square_hd"}
+DEFAULT_CONFIG = {"model": "checkpoint_827184", "negative_prompt": "bad anatomy, signature, watermark, username, error, missing limbs, error, bad quality,worst quality,worst detail,sketch,censor, cropped, crop", "loras": [], "image_size": "square"}
 
 # Available schedulers - key: display name, value: API value
 AVAILABLE_SCHEDULERS = {
@@ -19,7 +19,11 @@ AVAILABLE_SCHEDULERS = {
 }
 
 # Available image sizes with human-readable names
-IMAGE_SIZES = {"square_hd": "Квадрат HD (1024×1024)", "square": "Квадрат (512×512)", "portrait_4_3": "Портрет 4:3 (768×1024)", "portrait_16_9": "Портрет 16:9 (576×1024)", "landscape_4_3": "Пейзаж 4:3 (1024×768)", "landscape_16_9": "Пейзаж 16:9 (1024×576)"}
+IMAGE_SIZES = {
+    "square": "Квадрат (512×512)", 
+    "portrait_4_3": "Портрет (512×768)", 
+    "landscape_4_3": "Пейзаж (768x512)", 
+}
 
 # Callback data prefixes
 CALLBACK_PREFIX = "imagegen_"
@@ -31,4 +35,4 @@ SCHEDULER_CALLBACK = f"{CALLBACK_PREFIX}scheduler_"
 IMAGE_SIZE_CALLBACK = f"{CALLBACK_PREFIX}image_size_"
 BACK_CALLBACK = f"{CALLBACK_PREFIX}back"
 
-IMAGEGEN_DISABLED = True
+IMAGEGEN_DISABLED = False

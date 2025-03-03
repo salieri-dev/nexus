@@ -7,12 +7,48 @@ from pyrogram.types import InputMediaPhoto
 from structlog import get_logger
 
 from src.services.falai import FalAI
-from .constants import DEFAULT_CONFIG, AVAILABLE_SCHEDULERS
+from .constants import DEFAULT_CONFIG
 from .repository import ImagegenRepository, ImagegenModelRepository
 from src.database.repository.requests_repository import RequestRepository
 
 log = get_logger(__name__)
 
+
+def process_image_results(result):
+    """
+    Process the image generation results from fal into a simplified list format.
+    
+    Args:
+        result (dict): The result dictionary from the fal API call
+    
+    Returns:
+        list: A list of dictionaries, each containing 'before' and 'after' image information
+    """
+    # Collect all images from all outputs
+    before_images = []
+    final_images = []
+    
+    # Flatten the structure and collect images in one pass
+    for value in result['outputs'].values():
+        if 'images' in value:
+            for img in value['images']:
+                if 'before_' in img['filename']:
+                    before_images.append(img)
+                elif 'final_' in img['filename']:
+                    final_images.append(img)
+    
+    # Sort images by filename
+    before_images.sort(key=lambda x: x['filename'])
+    final_images.sort(key=lambda x: x['filename'])
+    
+    # Create pairs using list comprehension
+    return [
+        {
+            'before': {'filename': b['filename'], 'url': b['url']},
+            'after': {'filename': a['filename'], 'url': a['url']}
+        }
+        for b, a in zip(before_images, final_images)
+    ]
 
 class ImagegenService:
     """Service for generating images using fal-ai."""
@@ -122,26 +158,6 @@ class ImagegenService:
         return await ImagegenService._get_model_data(model_id, "preview_url") or ""
 
     @staticmethod
-    async def _get_scheduler_display_name(scheduler_id: str) -> str:
-        """
-        Get scheduler display name from scheduler ID.
-
-        Args:
-            scheduler_id: The scheduler ID to look up
-
-        Returns:
-            The scheduler display name
-        """
-        # Find the display name for the scheduler ID
-        for display_name, id_value in AVAILABLE_SCHEDULERS.items():
-            if id_value == scheduler_id:
-                return display_name
-
-        # Default if not found
-        log.warning("Scheduler not found, using default", scheduler_id=scheduler_id)
-        return "DPM++ 2M SDE Karras"
-
-    @staticmethod
     async def _enhance_prompt_with_trigger_words(prompt: str, trigger_words: List[str]) -> str:
         """
         Enhance prompt with trigger words.
@@ -242,25 +258,43 @@ class ImagegenService:
         # Add trigger words to the prompt if any
         enhanced_prompt = await ImagegenService._enhance_prompt_with_trigger_words(prompt, trigger_words)
 
-        # Get scheduler display name
-        scheduler_id = config.get("scheduler", DEFAULT_CONFIG["scheduler"])
-        scheduler_display_name = await ImagegenService._get_scheduler_display_name(scheduler_id)
+        # Get image size dimensions
+        image_size = config.get("image_size", DEFAULT_CONFIG["image_size"])
+        width, height = 512, 512  # Default square
+        
+        # Only the three specified image sizes are supported
+        if image_size == "square":
+            width, height = 512, 512
+        elif image_size == "portrait_4_3":
+            width, height = 512, 768
+        elif image_size == "landscape_4_3":
+            width, height = 768, 512
+        else:
+            log.error("Unknown image size", image_size=image_size)
+            # Fall back to default square size
+            image_size = "square"
+            width, height = 512, 512
 
-        # Prepare payload
+        # Base payload
         payload = {
-            "model_name": model_url,
+            "width": width,
+            "height": height,
+            "batch_size": 4,  # Default to 4 images
             "prompt": enhanced_prompt,
             "negative_prompt": config.get("negative_prompt", DEFAULT_CONFIG["negative_prompt"]),
-            "prompt_weighting": True,
-            "loras": loras,
-            "num_images": 4,  # Default to 4 images
-            "image_size": config.get("image_size", DEFAULT_CONFIG["image_size"]),
-            "num_inference_steps": 30,  # Default value
-            "guidance_scale": config.get("cfg_scale", DEFAULT_CONFIG["cfg_scale"]),
-            "clip_skip": 2,  # Default value
-            "scheduler": scheduler_display_name,  # Use display name instead of ID
-            "enable_safety_checker": False,
+            "seed": "",  # Empty string for random seed
+            "steps": 30,  # Default value
+            "cfg": 5,  # Default value
+            "checkpoint_url": model_url,
+            "sampler": "dpmpp_2m",  # Default sampler
         }
+
+        # If loras are present, add lora parameters
+        if loras:
+            # Use the first lora (as per UI, only one lora can be selected)
+            if loras[0].get("path"):
+                payload["lora_url"] = loras[0]["path"]
+                payload["lora_strength"] = loras[0].get("weight", 1.0)
 
         return payload
 
@@ -276,10 +310,28 @@ class ImagegenService:
             List of image URLs
         """
         images = []
-        if "images" in handler:
-            for image in handler["images"]:
-                if "url" in image:
-                    images.append(image["url"])
+        
+        # Process the result using the process_image_results function
+        try:
+            # Use the process_image_results function to get the structured data
+            log.info("Processing image results", handler=handler)
+            processed_results = process_image_results(handler)
+            log.info("Processed image results", count=len(processed_results))
+            
+            # Extract only the 'after' URLs as requested
+            for result in processed_results:
+                if 'after' in result and 'url' in result['after']:
+                    images.append(result['after']['url'])
+        except Exception as e:
+            log.error(f"Error processing image results: {str(e)}")
+            
+            # Fallback to direct extraction if processing fails
+            if "outputs" in handler:
+                for output in handler["outputs"].values():
+                    if "images" in output:
+                        for image in output["images"]:
+                            if "url" in image and "final_" in image.get("filename", ""):
+                                images.append(image["url"])
 
         log.info("Extracted image URLs", count=len(images))
         return images
@@ -393,7 +445,7 @@ class ImagegenService:
             # Prepare payload
             payload = await ImagegenService._prepare_generation_payload(user_id, prompt)
 
-            log.info("Generating images", user_id=user_id, prompt=prompt)
+            log.info("Generating images", payload=payload, user_id=user_id, prompt=prompt)
             
             # Create a new request record with processing status
             request_doc = await ImagegenService._create_request_record(
@@ -408,8 +460,12 @@ class ImagegenService:
             # Get FalAI client
             falai = FalAI()
 
+            # Determine which endpoint to use based on whether LoRAs are present
+            endpoint = "comfy/htkg/text-2-image-lora" if "lora_url" in payload else "comfy/htkg/text-2-image"
+            log.info(f"Using endpoint: {endpoint}")
+            
             # Submit the job to fal-ai synchronously
-            handler = await falai.generate_image_sync("fal-ai/lora", payload)
+            handler = await falai.generate_image_sync(endpoint, payload)
             
             # Extract image URLs from the result
             image_urls = await ImagegenService._extract_image_urls(handler)
@@ -469,7 +525,7 @@ class ImagegenService:
             # Prepare payload
             payload = await ImagegenService._prepare_generation_payload(user_id, prompt)
 
-            log.info("Generating images with progress", user_id=user_id, prompt=prompt)
+            log.info("Generating images", payload=payload, user_id=user_id, prompt=prompt)
             
             # Create a new request record with processing status
             request_doc = await ImagegenService._create_request_record(
@@ -484,8 +540,12 @@ class ImagegenService:
             # Get FalAI client
             falai = FalAI()
 
+            # Determine which endpoint to use based on whether LoRAs are present
+            endpoint = "comfy/htkg/text-2-image-lora" if "lora_url" in payload else "comfy/htkg/text-2-image"
+            log.info(f"Using endpoint: {endpoint}")
+            
             # Submit the job to fal-ai and yield progress events
-            async for event in falai.generate_image("fal-ai/lora", payload):
+            async for event in falai.generate_image(endpoint, payload):
                 # Extract image URLs if available
                 if "images" in event and event.get("images"):
                     image_urls = [img.get("url") for img in event.get("images") if img.get("url")]

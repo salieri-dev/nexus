@@ -43,7 +43,7 @@ async def ideogram_command(client: Client, message: Message):
                 allowed = await rate_limit_repo.check_rate_limit(
                     user_id=user_id,
                     operation="ideogram",
-                    window_seconds=15  # 15 SECONDS
+                    window_seconds=90 
                 )
                 
                 if not allowed:
