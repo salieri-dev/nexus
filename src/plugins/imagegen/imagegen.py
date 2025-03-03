@@ -118,6 +118,13 @@ async def create_image_size_keyboard() -> InlineKeyboardMarkup:
 async def imagegen_command(client: Client, message: Message):
     """Handler for /imagegen command."""
     
+    user_id = message.from_user.id
+    isvip = await is_vip(user_id)
+    log.info("VIP Status", user_id=user_id, isvip=isvip)
+    if not isvip:
+        await message.reply("❌ **Только VIP пользователи могут использовать эту команду**", parse_mode=ParseMode.MARKDOWN)
+        return
+    
     if IMAGEGEN_DISABLED:
         await message.reply("❌ **Генерация изображений отключена. Идут технические работы**", parse_mode=ParseMode.MARKDOWN)
         return
@@ -126,30 +133,26 @@ async def imagegen_command(client: Client, message: Message):
         if len(message.command) > 1:
             # Apply rate limiting only for image generation
             # Check rate limit manually
-            user_id = message.from_user.id
-            isvip = await is_vip(user_id)
-            log.info("VIP Status", user_id=user_id, isvip=isvip)
             
-            if isvip:
-                log.info("VIP bypassed rate limit for imagegen", user_id=user_id)
-            else:
-                db_client = DatabaseClient.get_instance()
-                rate_limit_repo = RateLimitRepository(db_client)
-                
-                # Check if user is rate limited (3 minutes window)
-                allowed = await rate_limit_repo.check_rate_limit(
-                    user_id=user_id,
-                    operation="imagegen",
-                    window_seconds=180  # 3 minutes
+
+            
+            db_client = DatabaseClient.get_instance()
+            rate_limit_repo = RateLimitRepository(db_client)
+            
+            # Check if user is rate limited (3 minutes window)
+            allowed = await rate_limit_repo.check_rate_limit(
+                user_id=user_id,
+                operation="imagegen",
+                window_seconds=180  # 3 minutes
+            )
+            
+            if not allowed:
+                await message.reply(
+                    "⏳ **Слишком много запросов!**\n\nПожалуйста, подождите 3 минуты перед следующей генерацией изображений.",
+                    parse_mode=ParseMode.MARKDOWN
                 )
-                
-                if not allowed:
-                    await message.reply(
-                        "⏳ **Слишком много запросов!**\n\nПожалуйста, подождите 3 минуты перед следующей генерацией изображений.",
-                        parse_mode=ParseMode.MARKDOWN
-                    )
-                    return
-                
+                return
+            
             # Get the prompt from the message
             prompt = " ".join(message.command[1:])
 
