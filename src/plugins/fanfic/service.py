@@ -157,7 +157,7 @@ class FanficService:
         try:
             # Generate the image using flux-lora model
             final_result = None
-            async for event in falai.generate_image("fal-ai/flux-lora", payload):
+            async for event in falai.generate_image("fal-ai/flux/dev", payload):
                 # Log progress events if needed
                 if isinstance(event, dict) and "logs" in event:
                     log.info(f"Image generation progress: {event['logs']}")
