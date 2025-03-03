@@ -143,7 +143,7 @@ async def imagegen_command(client: Client, message: Message):
             allowed = await rate_limit_repo.check_rate_limit(
                 user_id=user_id,
                 operation="imagegen",
-                window_seconds=180  # 3 minutes
+                window_seconds=60  # 1 minute
             )
             
             if not allowed:
