@@ -261,8 +261,39 @@ async def imagegen_command(client: Client, message: Message):
             # Create media group
             media_group = await imagegen_service.create_media_group(image_urls, caption)
 
-            # Send the media group
-            await client.send_media_group(chat_id=message.chat.id, media=media_group, reply_to_message_id=message.id)
+            # Try to send the media group with URLs
+            try:
+                await client.send_media_group(chat_id=message.chat.id, media=media_group, reply_to_message_id=message.id)
+            except Exception as e:
+                log.error("Error sending media group with URLs", error=str(e))
+                
+                # Fallback: Download images and create new media group with local files
+                try:
+                    log.info("Falling back to downloading images")
+                    downloaded_media_group = []
+                    
+                    # Download all images
+                    for i, url in enumerate(image_urls):
+                        file_path = await imagegen_service.download_image(url)
+                        # Add caption only to the first image
+                        media_caption = caption if i == 0 else None
+                        downloaded_media_group.append(InputMediaPhoto(file_path, caption=media_caption))
+                    
+                    # Send the media group with downloaded files
+                    await client.send_media_group(
+                        chat_id=message.chat.id,
+                        media=downloaded_media_group,
+                        reply_to_message_id=message.id
+                    )
+                except Exception as e:
+                    log.error("Error sending media group with downloaded files", error=str(e))
+                    # If all attempts fail, send a message to the user
+                    await message.reply(
+                        "⚠️ **Возникла проблема с отправкой изображений**\n\n"
+                        "Изображения были сгенерированы, но не могут быть отправлены группой. "
+                        "Попробуйте сгенерировать изображения снова.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
 
             # Now create a document media group for downloading the images
             document_media_group = []
@@ -273,13 +304,35 @@ async def imagegen_command(client: Client, message: Message):
                     )
                 )
             
-            # Send documents in a separate media group
+            # Try to send documents in a separate media group
             if document_media_group:
-                await client.send_media_group(
-                    chat_id=message.chat.id,
-                    media=document_media_group,
-                    reply_to_message_id=message.id
-                )
+                try:
+                    await client.send_media_group(
+                        chat_id=message.chat.id,
+                        media=document_media_group,
+                        reply_to_message_id=message.id
+                    )
+                except Exception as e:
+                    log.error("Error sending document media group with URLs", error=str(e))
+                    
+                    # Fallback: Download images and create new document media group with local files
+                    try:
+                        log.info("Falling back to downloading images for documents")
+                        downloaded_document_media_group = []
+                        
+                        # Download all images
+                        for url in image_urls:
+                            file_path = await imagegen_service.download_image(url)
+                            downloaded_document_media_group.append(InputMediaDocument(file_path))
+                        
+                        # Send the document media group with downloaded files
+                        await client.send_media_group(
+                            chat_id=message.chat.id,
+                            media=downloaded_document_media_group,
+                            reply_to_message_id=message.id
+                        )
+                    except Exception as e:
+                        log.error("Error sending document media group with downloaded files", error=str(e))
 
 
             # Delete the processing message

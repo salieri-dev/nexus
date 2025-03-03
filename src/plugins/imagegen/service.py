@@ -2,6 +2,9 @@
 
 from typing import Dict, Any, List, Tuple, AsyncGenerator, Optional, Union
 import asyncio
+import os
+import tempfile
+from urllib.parse import urlparse
 
 from pyrogram.types import InputMediaPhoto
 from structlog import get_logger
@@ -614,6 +617,48 @@ class ImagegenService:
             chat_id=chat_id
         ):
             yield event
+
+    @staticmethod
+    async def download_image(url: str) -> str:
+        """
+        Download an image from a URL to a temporary file.
+
+        Args:
+            url: The URL of the image to download
+
+        Returns:
+            Path to the downloaded file
+        """
+        import httpx
+
+        # Create a temporary directory if it doesn't exist
+        temp_dir = os.path.join(tempfile.gettempdir(), "telegram_images")
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Extract filename from URL or generate a random one
+        parsed_url = urlparse(url)
+        filename = os.path.basename(parsed_url.path)
+        if not filename or "." not in filename:
+            filename = f"image_{hash(url)}.jpg"
+
+        # Full path to save the file
+        file_path = os.path.join(temp_dir, filename)
+
+        # Download the file
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                
+                # Save the file
+                with open(file_path, "wb") as f:
+                    f.write(response.content)
+                
+                log.info(f"Downloaded image from {url} to {file_path}")
+                return file_path
+        except Exception as e:
+            log.error(f"Error downloading image from {url}: {str(e)}")
+            raise
 
     @staticmethod
     async def create_media_group(image_urls: List[str], caption: str = None) -> List[InputMediaPhoto]:
