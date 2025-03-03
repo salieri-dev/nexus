@@ -282,7 +282,7 @@ class ImagegenService:
         payload = {
             "width": width,
             "height": height,
-            "batch_size": 4,  # Default to 4 images
+            "batch_size": 2,  # Default to 4 images
             "prompt": enhanced_prompt,
             "negative_prompt": config.get("negative_prompt", DEFAULT_CONFIG["negative_prompt"]),
             "seed": "",  # Empty string for random seed
