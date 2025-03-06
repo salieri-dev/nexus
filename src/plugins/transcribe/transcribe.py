@@ -61,5 +61,6 @@ async def transcribe_handler(client: Client, message: Message):
 
     # Only reply if transcription was successful
     if result["transcription"]:
-        log.info(f"Transcription: {result["transcription"]}")
-        await message.reply_text(TRANSCRIPTION_SUCCESS.format(result["transcription"]), quote=True, parse_mode=ParseMode.DEFAULT)
+        trans = result["transcription"]
+        log.info(f"Transcription: {trans}")
+        await message.reply_text(TRANSCRIPTION_SUCCESS.format(trans), quote=True, parse_mode=ParseMode.DEFAULT)
