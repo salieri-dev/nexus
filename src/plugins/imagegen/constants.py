@@ -1,7 +1,7 @@
 """Constants for the imagegen plugin."""
 
 # Default configuration for imagegen
-DEFAULT_CONFIG = {"model": "checkpoint_827184", "negative_prompt": "bad anatomy, signature, watermark, username, error, missing limbs, error, bad quality,worst quality,worst detail,sketch,censor, cropped, crop", "loras": [], "image_size": "square"}
+DEFAULT_CONFIG = {"model": "checkpoint_827184", "negative_prompt": "bad anatomy, bad quality, worst quality,worst detail,sketch,censor, cropped, crop", "loras": [], "image_size": "square"}
 
 # Available schedulers - key: display name, value: API value
 AVAILABLE_SCHEDULERS = {
